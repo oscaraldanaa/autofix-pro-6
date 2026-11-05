@@ -1,0 +1,22 @@
+# Entorno virtual
+venv/
+env/
+ENV/
+
+# Variables de entorno reales (¡Nunca subas tus contraseñas!)
+.env
+
+# Caché y compilados de Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+
+# Archivos de editores de código (como VS Code)
+.vscode/
+.idea/
+
+# Directorios de bases de datos locales si usas SQLite como archivo
+*.db
+*.sqlite3
