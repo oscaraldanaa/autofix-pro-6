@@ -1,7 +1,7 @@
-import pytest
 import uuid
-from src.domain.entities.trabajo_reparacion import TrabajoReparacion, EstadoTrabajo
-from src.domain.value_objects import TrabajoId, ConceptoId, TecnicoId
+
+from src.domain.entities.trabajo_reparacion import EstadoTrabajo, TrabajoReparacion
+from src.domain.value_objects import ConceptoId, TecnicoId, TrabajoId
 
 
 def test_trabajo_reparacion_init():

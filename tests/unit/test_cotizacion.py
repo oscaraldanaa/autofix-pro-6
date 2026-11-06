@@ -1,12 +1,21 @@
-import pytest
 import uuid
 from decimal import Decimal
-from datetime import datetime
+
+import pytest
+
 from src.domain.entities.cotizacion import (
-    ConceptoCotizacion, Cotizacion, TipoConcepto, TipoCotizacion, EstadoConcepto, ResultadoCotizacion
+    ConceptoCotizacion,
+    Cotizacion,
+    EstadoConcepto,
+    TipoConcepto,
+    TipoCotizacion,
 )
-from src.domain.value_objects import ConceptoId, CotizacionId, Dinero, EvidenciaAutorizacion, Porcentaje
-from src.domain.shared import ValorInvalido, ReglaDeNegocioViolada, utc_now
+from src.domain.shared import ValorInvalido, utc_now
+from src.domain.value_objects import (
+    ConceptoId,
+    CotizacionId,
+    Dinero,
+)
 
 
 def test_concepto_cotizacion_init_y_propiedades():
@@ -20,7 +29,7 @@ def test_concepto_cotizacion_init_y_propiedades():
     assert concepto.tipo == TipoConcepto.MANO_DE_OBRA
     assert concepto.descripcion == "Frenos"
     assert concepto.precio_unitario == precio
-    assert concepto.cantidad == Decimal("2")
+    assert concepto.cantidad == Decimal(2)
     assert concepto.estado == EstadoConcepto.PENDIENTE
     assert not concepto.autorizado
 

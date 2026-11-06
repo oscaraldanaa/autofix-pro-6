@@ -1,5 +1,7 @@
-import pytest
 import uuid
+
+import pytest
+
 from src.domain.entities.cliente import Cliente
 from src.domain.shared import ValorInvalido
 from src.domain.value_objects import ClienteId, CuentaFlotillaId, DatosContacto

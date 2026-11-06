@@ -1,25 +1,33 @@
-import pytest
 import uuid
 from decimal import Decimal
 
+import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from src.infrastructure.persistence.database import Base
-from src.infrastructure.persistence.repositorios import (
-    SqlOrdenServicioRepository,
-    SqlClienteRepository,
-    SqlVehiculoRepository,
-    SqlTecnicoRepository,
-    SqlCuentaFlotillaRepository,
+from src.domain.entities import (
+    CondicionesFlotilla,
+    CuentaFlotilla,
+    Tecnico,
+    Vehiculo,
 )
-from src.domain.entities import Cliente, Vehiculo, Tecnico, CuentaFlotilla, OrdenServicio, CondicionesFlotilla
-from src.domain.shared import EntidadNoEncontrada
 from src.domain.value_objects import (
-    ClienteId, VehiculoId, TecnicoId, CuentaFlotillaId, OrdenServicioId,
-    DatosContacto, Placas, Kilometraje, DatosRecepcion, NivelCombustible, Porcentaje
+    ClienteId,
+    CuentaFlotillaId,
+    Kilometraje,
+    Placas,
+    Porcentaje,
+    TecnicoId,
+    VehiculoId,
 )
+from src.infrastructure.persistence.database import Base
 from src.infrastructure.persistence.mappers import _rehidratar
+from src.infrastructure.persistence.repositorios import (
+    SqlClienteRepository,
+    SqlCuentaFlotillaRepository,
+    SqlTecnicoRepository,
+    SqlVehiculoRepository,
+)
 
 
 @pytest.fixture

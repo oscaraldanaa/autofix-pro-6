@@ -1,15 +1,26 @@
-import pytest
-import uuid
 from datetime import datetime, timedelta
+
+import pytest
+
 from src.domain.entities.orden_servicio import OrdenServicio
-from src.domain.value_objects import (
-    OrdenServicioId, ClienteId, VehiculoId, DatosRecepcion, NivelCombustible,
-    Kilometraje, SolicitudRefaccionId, ConceptoId, TecnicoId, FechaEntrega
+from src.domain.entities.solicitudes import (
+    SolicitudRefaccion,
 )
-from src.domain.shared import ValorInvalido, ReglaDeNegocioViolada, utc_now
+from src.domain.shared import ReglaDeNegocioViolada, ValorInvalido, utc_now
+from src.domain.value_objects import (
+    ClienteId,
+    ConceptoId,
+    DatosRecepcion,
+    FechaEntrega,
+    Kilometraje,
+    NivelCombustible,
+    OrdenServicioId,
+    SolicitudRefaccionId,
+    TecnicoId,
+    VehiculoId,
+)
 from src.domain.value_objects.estado_orden import EstadoOrden
-from src.domain.entities.solicitudes import SolicitudRefaccion
-from src.domain.entities.solicitudes import SolicitudAmpliacion, EstadoAmpliacion
+
 
 def test_registrar_diagnostico_sin_hallazgos():
     """Cubre las líneas 79-89 (específicamente la validación de hallazgos vacíos en registrar_diagnostico)."""

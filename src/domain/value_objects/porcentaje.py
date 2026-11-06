@@ -13,7 +13,7 @@ class Porcentaje(ValueObject):
     valor: Decimal
 
     def __post_init__(self) -> None:
-        if isinstance(self.valor, float) or isinstance(self.valor, bool):
+        if isinstance(self.valor, (float, bool)):
             raise ValorInvalido("Porcentaje no admite float; use Decimal, int o str")
         object.__setattr__(self, "valor", Decimal(str(self.valor)))
         super().__post_init__()
@@ -23,11 +23,11 @@ class Porcentaje(ValueObject):
             raise ValorInvalido("El porcentaje debe estar entre 0 y 100")
 
     @classmethod
-    def de(cls, valor: Decimal | int | str) -> "Porcentaje":
+    def de(cls, valor: Decimal | int | str) -> Porcentaje:
         return cls(Decimal(str(valor)))
 
     @classmethod
-    def cero(cls) -> "Porcentaje":
+    def cero(cls) -> Porcentaje:
         return cls(Decimal(0))
 
     @property

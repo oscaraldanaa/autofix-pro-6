@@ -15,9 +15,10 @@ except ImportError:  # pragma: no cover
     sys.modules.setdefault("src.domain", types.ModuleType("src.domain"))
     sys.modules["src.domain.exceptions"] = mod
 
+from src.domain.exceptions import DomainError, EntityNotFoundError
+
 from src.api.adapter import OrdenServiceAdapter
 from src.api.ports import OrdenNoEncontradaError, ReglaNegocioError
-from src.domain.exceptions import DomainError, EntityNotFoundError
 
 
 class Fachada:

@@ -13,7 +13,7 @@ from .tipos import UTCDateTime
 ID = String(36)
 DINERO = Numeric(14, 2)
 PCT = Numeric(5, 2)
-_CASCADE = dict(cascade="all, delete-orphan", lazy="selectin")
+_CASCADE = {"cascade": "all, delete-orphan", "lazy": "selectin"}
 
 
 class CuentaFlotillaRecord(Base):
@@ -79,13 +79,13 @@ class OrdenServicioRecord(Base):
     fecha_entrega: Mapped[datetime | None] = mapped_column(UTCDateTime)
     monto_cobrado: Mapped[Decimal | None] = mapped_column(DINERO)
 
-    cotizaciones: Mapped[list["CotizacionRecord"]] = relationship(**_CASCADE)
-    trabajos: Mapped[list["TrabajoRecord"]] = relationship(order_by="TrabajoRecord.posicion", **_CASCADE)
-    solicitudes_refaccion: Mapped[list["SolicitudRefaccionRecord"]] = relationship(
+    cotizaciones: Mapped[list[CotizacionRecord]] = relationship(**_CASCADE)
+    trabajos: Mapped[list[TrabajoRecord]] = relationship(order_by="TrabajoRecord.posicion", **_CASCADE)
+    solicitudes_refaccion: Mapped[list[SolicitudRefaccionRecord]] = relationship(
         order_by="SolicitudRefaccionRecord.posicion", **_CASCADE)
-    solicitudes_ampliacion: Mapped[list["SolicitudAmpliacionRecord"]] = relationship(
+    solicitudes_ampliacion: Mapped[list[SolicitudAmpliacionRecord]] = relationship(
         order_by="SolicitudAmpliacionRecord.posicion", **_CASCADE)
-    cambios_fecha: Mapped[list["CambioFechaRecord"]] = relationship(order_by="CambioFechaRecord.posicion", **_CASCADE)
+    cambios_fecha: Mapped[list[CambioFechaRecord]] = relationship(order_by="CambioFechaRecord.posicion", **_CASCADE)
 
 
 class CotizacionRecord(Base):
@@ -98,7 +98,7 @@ class CotizacionRecord(Base):
     tasa_impuesto: Mapped[Decimal] = mapped_column(PCT)
     descuento: Mapped[Decimal] = mapped_column(PCT)
     respondida: Mapped[bool] = mapped_column(Boolean, default=False)
-    conceptos: Mapped[list["ConceptoRecord"]] = relationship(order_by="ConceptoRecord.posicion", **_CASCADE)
+    conceptos: Mapped[list[ConceptoRecord]] = relationship(order_by="ConceptoRecord.posicion", **_CASCADE)
 
 
 class ConceptoRecord(Base):

@@ -1,13 +1,30 @@
 """Alta de clientes, vehículos, técnicos y cuentas de flotilla."""
 from __future__ import annotations
 
-from ...domain.entities import Cliente, CondicionesFlotilla, CuentaFlotilla, Tecnico, Vehiculo
+from ...domain.entities import (
+    Cliente,
+    CondicionesFlotilla,
+    CuentaFlotilla,
+    Tecnico,
+    Vehiculo,
+)
 from ...domain.shared import ReglaDeNegocioViolada
 from ...domain.value_objects import (
-    ClienteId, CuentaFlotillaId, DatosContacto, Kilometraje, Placas, Porcentaje, TecnicoId, VehiculoId, Vin,
+    ClienteId,
+    CuentaFlotillaId,
+    DatosContacto,
+    Kilometraje,
+    Placas,
+    Porcentaje,
+    TecnicoId,
+    VehiculoId,
+    Vin,
 )
 from ..dto import (
-    RegistrarClienteCmd, RegistrarCuentaFlotillaCmd, RegistrarTecnicoCmd, RegistrarVehiculoCmd,
+    RegistrarClienteCmd,
+    RegistrarCuentaFlotillaCmd,
+    RegistrarTecnicoCmd,
+    RegistrarVehiculoCmd,
 )
 from .base import CasoDeUso
 

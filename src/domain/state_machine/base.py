@@ -1,9 +1,10 @@
 """Máquina de estados genérica y declarativa (tabla de transiciones)."""
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Generic, Iterable, TypeVar
+from typing import Any, Generic, TypeVar
 
 from ..shared import ReglaDeNegocioViolada
 from ..specifications.base import Specification

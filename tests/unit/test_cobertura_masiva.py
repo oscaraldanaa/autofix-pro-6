@@ -1,14 +1,18 @@
-import pytest
 import uuid
-from decimal import Decimal
 from datetime import datetime
+from decimal import Decimal
+
 from src.domain.entities.orden_servicio import OrdenServicio
-from src.domain.value_objects.identificadores import OrdenServicioId, ClienteId, VehiculoId
-from src.domain.value_objects.dinero import Dinero
-from src.domain.value_objects.kilometraje import Kilometraje
 from src.domain.value_objects.contacto import DatosContacto
 from src.domain.value_objects.datos_recepcion import DatosRecepcion
-from src.application.use_cases.ordenes import RegistrarIngresoVehiculo # O el caso de uso principal que tengas
+from src.domain.value_objects.dinero import Dinero
+from src.domain.value_objects.identificadores import (
+    ClienteId,
+    OrdenServicioId,
+    VehiculoId,
+)
+from src.domain.value_objects.kilometraje import Kilometraje
+
 
 def test_entidad_orden_servicio_operaciones():
     """Prueba integral de la entidad OrdenServicio para cubrir líneas de dominio."""

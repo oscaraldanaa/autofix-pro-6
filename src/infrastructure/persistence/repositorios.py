@@ -5,12 +5,21 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ...application.ports import (
-    ClienteRepository, CuentaFlotillaRepository, OrdenServicioRepository, TecnicoRepository, VehiculoRepository,
+    ClienteRepository,
+    CuentaFlotillaRepository,
+    OrdenServicioRepository,
+    TecnicoRepository,
+    VehiculoRepository,
 )
 from ...domain.entities import Cliente, CuentaFlotilla, OrdenServicio, Tecnico, Vehiculo
 from ...domain.shared import EntidadNoEncontrada
 from ...domain.value_objects import (
-    ClienteId, CuentaFlotillaId, OrdenServicioId, Placas, TecnicoId, VehiculoId,
+    ClienteId,
+    CuentaFlotillaId,
+    OrdenServicioId,
+    Placas,
+    TecnicoId,
+    VehiculoId,
 )
 from . import mappers as mp
 from . import modelos as m

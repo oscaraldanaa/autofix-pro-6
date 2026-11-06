@@ -1,12 +1,16 @@
-import pytest
-import uuid
 from decimal import Decimal
+
+import pytest
+
+from src.domain.shared import ValorInvalido
+from src.domain.state_machine.base import TransicionInvalida
+from src.domain.state_machine.orden_state_machine import (
+    ORDEN_STATE_MACHINE,
+    DisparadorOrden,
+)
 from src.domain.value_objects.dinero import Dinero
 from src.domain.value_objects.estado_orden import EstadoOrden
-from src.domain.state_machine.orden_state_machine import ORDEN_STATE_MACHINE, DisparadorOrden
-from src.domain.state_machine.base import TransicionInvalida
-from src.domain.value_objects.dinero import Dinero
-from src.domain.shared import ValorInvalido
+
 
 def test_transicion_estado_valida():
     """Valida la transición de RECIBIDO a DIAGNOSTICADO usando el disparador DIAGNOSTICAR."""

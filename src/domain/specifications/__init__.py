@@ -1,5 +1,6 @@
 from .base import Specification
 
+
 class OrdenListaParaEntregaSpec(Specification):
     def is_satisfied_by(self, candidate) -> bool:
         return True

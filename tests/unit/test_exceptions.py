@@ -1,9 +1,10 @@
 import pytest
+
 from src.domain.shared.exceptions import (
     DomainError,
-    ValorInvalido,
-    ReglaDeNegocioViolada,
     EntidadNoEncontrada,
+    ReglaDeNegocioViolada,
+    ValorInvalido,
 )
 
 

@@ -1,8 +1,16 @@
-import pytest
 import uuid
+
+import pytest
+
 from src.domain.entities.vehiculo import Vehiculo
 from src.domain.shared import ReglaDeNegocioViolada, ValorInvalido
-from src.domain.value_objects import VehiculoId, Placas, Kilometraje, Vin, CuentaFlotillaId
+from src.domain.value_objects import (
+    CuentaFlotillaId,
+    Kilometraje,
+    Placas,
+    VehiculoId,
+    Vin,
+)
 
 
 def test_vehiculo_init_y_propiedades():

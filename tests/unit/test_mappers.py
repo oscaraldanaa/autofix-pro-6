@@ -1,21 +1,28 @@
 import uuid
 from decimal import Decimal
-import pytest
 
-from src.domain.entities import Cliente, Vehiculo, Tecnico, CuentaFlotilla
-from src.domain.value_objects import (
-    ClienteId, VehiculoId, TecnicoId, CuentaFlotillaId,
-    DatosContacto, Placas, Vin, Kilometraje, Porcentaje
-)
-
+from src.domain.entities import Cliente, CuentaFlotilla, Tecnico, Vehiculo
 from src.domain.entities.cuenta_flotilla import CondicionesFlotilla
-
+from src.domain.value_objects import (
+    ClienteId,
+    CuentaFlotillaId,
+    DatosContacto,
+    Kilometraje,
+    Placas,
+    Porcentaje,
+    TecnicoId,
+    VehiculoId,
+)
 from src.infrastructure.persistence.mappers import (
-    cliente_a_record, record_a_cliente,
-    vehiculo_a_record, record_a_vehiculo,
-    tecnico_a_record, record_a_tecnico,
-    cuenta_a_record, record_a_cuenta,
-    _rehidratar
+    _rehidratar,
+    cliente_a_record,
+    cuenta_a_record,
+    record_a_cliente,
+    record_a_cuenta,
+    record_a_tecnico,
+    record_a_vehiculo,
+    tecnico_a_record,
+    vehiculo_a_record,
 )
 
 

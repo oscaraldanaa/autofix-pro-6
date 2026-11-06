@@ -4,7 +4,12 @@ from datetime import datetime
 from enum import Enum
 
 from ..shared import Entity, ReglaDeNegocioViolada
-from ..value_objects import ConceptoId, SolicitudAmpliacionId, SolicitudRefaccionId, TecnicoId
+from ..value_objects import (
+    ConceptoId,
+    SolicitudAmpliacionId,
+    SolicitudRefaccionId,
+    TecnicoId,
+)
 from .cotizacion import Cotizacion
 
 

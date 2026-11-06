@@ -1,5 +1,5 @@
 """Fixtures compartidas: servicio en memoria que respeta la máquina de estados."""
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 from uuid import UUID, uuid4
 
@@ -100,5 +100,5 @@ def ingreso_payload() -> dict:
         "nivel_combustible": "1/2",
         "danos_visibles": ["Rayón puerta derecha"],
         "motivo_ingreso": "Ruido en frenos",
-        "fecha_estimada_entrega": datetime(2026, 11, 20, tzinfo=timezone.utc).isoformat(),
+        "fecha_estimada_entrega": datetime(2026, 11, 20, tzinfo=UTC).isoformat(),
     }

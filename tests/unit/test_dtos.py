@@ -1,38 +1,41 @@
-import pytest
 import uuid
 from datetime import datetime
 from decimal import Decimal
 
 from src.application.dto import (
-    EvidenciaDTO,
-    ConceptoNuevoDTO,
-    RegistrarClienteCmd,
-    RegistrarVehiculoCmd,
-    RegistrarTecnicoCmd,
-    RegistrarCuentaFlotillaCmd,
-    RegistrarIngresoCmd,
-    RegistrarDiagnosticoCmd,
-    GenerarCotizacionCmd,
-    ResponderCotizacionCmd,
-    AsignarTrabajosCmd,
-    ReportarRefaccionSinExistenciaCmd,
     ActualizarReposicionCmd,
-    SolicitudRefaccionCmd,
-    RegistrarFallaAdicionalCmd,
-    EnviarCotizacionComplementariaCmd,
-    ResponderAmpliacionCmd,
-    DefinirFechaEntregaCmd,
-    TrabajoCmd,
-    OrdenCmd,
-    RegistrarCobroCmd,
+    AsignarTrabajosCmd,
     CancelarOrdenCmd,
-    a_orden_dto
+    ConceptoNuevoDTO,
+    DefinirFechaEntregaCmd,
+    EnviarCotizacionComplementariaCmd,
+    EvidenciaDTO,
+    GenerarCotizacionCmd,
+    OrdenCmd,
+    RegistrarClienteCmd,
+    RegistrarCobroCmd,
+    RegistrarCuentaFlotillaCmd,
+    RegistrarDiagnosticoCmd,
+    RegistrarFallaAdicionalCmd,
+    RegistrarIngresoCmd,
+    RegistrarTecnicoCmd,
+    RegistrarVehiculoCmd,
+    ReportarRefaccionSinExistenciaCmd,
+    ResponderAmpliacionCmd,
+    ResponderCotizacionCmd,
+    SolicitudRefaccionCmd,
+    TrabajoCmd,
+    a_orden_dto,
 )
 from src.domain.entities.orden_servicio import OrdenServicio
-from src.domain.value_objects.identificadores import OrdenServicioId, ClienteId, VehiculoId
-from src.domain.value_objects.kilometraje import Kilometraje, NivelCombustible
 from src.domain.value_objects.datos_recepcion import DatosRecepcion
-import uuid
+from src.domain.value_objects.identificadores import (
+    ClienteId,
+    OrdenServicioId,
+    VehiculoId,
+)
+from src.domain.value_objects.kilometraje import Kilometraje, NivelCombustible
+
 
 def test_instanciar_comandos_y_dtos_entrada():
     """Valida la correcta instanciación de todos los comandos y DTOs de entrada."""

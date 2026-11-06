@@ -1,23 +1,47 @@
 """Casos de uso de comando sobre la Orden de Servicio (US-01..US-15)."""
 from __future__ import annotations
 
-from datetime import datetime
-from decimal import Decimal
-from typing import Callable
-
 from ...domain.entities import ConceptoCotizacion, OrdenServicio, TipoConcepto
-from ...domain.shared import ReglaDeNegocioViolada
-from ...domain.specifications import ClienteActivoSpec, MontoMinimoSpec, TecnicoDisponibleSpec
+from ...domain.specifications import (
+    ClienteActivoSpec,
+    MontoMinimoSpec,
+    TecnicoDisponibleSpec,
+)
 from ...domain.value_objects import (
-    ClienteId, ConceptoId, DatosRecepcion, Dinero, FechaEntrega, Kilometraje, NivelCombustible,
-    OrdenServicioId, Porcentaje, SolicitudAmpliacionId, SolicitudRefaccionId, TecnicoId, TrabajoId, VehiculoId,
+    ClienteId,
+    ConceptoId,
+    DatosRecepcion,
+    Dinero,
+    FechaEntrega,
+    Kilometraje,
+    NivelCombustible,
+    Porcentaje,
+    SolicitudAmpliacionId,
+    SolicitudRefaccionId,
+    TecnicoId,
+    TrabajoId,
+    VehiculoId,
 )
 from ..dto import (
-    ActualizarReposicionCmd, AsignarTrabajosCmd, CancelarOrdenCmd, ConceptoNuevoDTO, DefinirFechaEntregaCmd,
-    EnviarCotizacionComplementariaCmd, GenerarCotizacionCmd, OrdenCmd, OrdenDetalleDTO,
-    RegistrarCobroCmd, RegistrarDiagnosticoCmd, RegistrarFallaAdicionalCmd, RegistrarIngresoCmd,
-    ReportarRefaccionSinExistenciaCmd, ResponderAmpliacionCmd, ResponderCotizacionCmd, SolicitudRefaccionCmd,
-    TrabajoCmd, a_orden_dto,
+    ActualizarReposicionCmd,
+    AsignarTrabajosCmd,
+    CancelarOrdenCmd,
+    ConceptoNuevoDTO,
+    DefinirFechaEntregaCmd,
+    EnviarCotizacionComplementariaCmd,
+    GenerarCotizacionCmd,
+    OrdenCmd,
+    OrdenDetalleDTO,
+    RegistrarCobroCmd,
+    RegistrarDiagnosticoCmd,
+    RegistrarFallaAdicionalCmd,
+    RegistrarIngresoCmd,
+    ReportarRefaccionSinExistenciaCmd,
+    ResponderAmpliacionCmd,
+    ResponderCotizacionCmd,
+    SolicitudRefaccionCmd,
+    TrabajoCmd,
+    a_orden_dto,
 )
 from ..ports import EventBus, UnitOfWorkFactory
 from .base import CasoDeUso, decisiones_a_dominio

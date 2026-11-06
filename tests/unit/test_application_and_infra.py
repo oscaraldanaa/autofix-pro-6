@@ -1,5 +1,5 @@
-import pytest
 from src.api.errors import BaseAPIException
+
 
 def test_excepciones_api():
     """Valida el comportamiento de las excepciones personalizadas de la API."""

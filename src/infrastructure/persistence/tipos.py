@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import DateTime
 from sqlalchemy.dialects import mysql
@@ -23,7 +23,7 @@ class UTCDateTime(TypeDecorator):
             return None
         if value.tzinfo is None:
             raise ValueError("Se esperaba un datetime con zona horaria")
-        return value.astimezone(timezone.utc).replace(tzinfo=None)
+        return value.astimezone(UTC).replace(tzinfo=None)
 
     def process_result_value(self, value: datetime | None, dialect):
-        return None if value is None else value.replace(tzinfo=timezone.utc)
+        return None if value is None else value.replace(tzinfo=UTC)

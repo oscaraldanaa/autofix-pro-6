@@ -11,9 +11,12 @@ def _build_service() -> OrdenServicePort:
     # (app.dependency_overrides) y no necesitan DB ni dominio.
     from sqlalchemy import create_engine
     from sqlalchemy.orm import sessionmaker
+    from src.application.bootstrap import (  # ← ajustar (Fase 2/3)
+        build_commands,
+        build_queries,
+    )
 
     from src.api.adapter import OrdenServiceAdapter
-    from src.application.bootstrap import build_commands, build_queries  # ← ajustar (Fase 2/3)
 
     engine = create_engine(get_settings().database_url, pool_pre_ping=True)
     session_factory = sessionmaker(engine, expire_on_commit=False)

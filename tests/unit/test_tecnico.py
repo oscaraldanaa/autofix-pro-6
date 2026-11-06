@@ -1,5 +1,7 @@
-import pytest
 import uuid
+
+import pytest
+
 from src.domain.entities.tecnico import Tecnico
 from src.domain.shared import ReglaDeNegocioViolada, ValorInvalido
 from src.domain.value_objects import TecnicoId

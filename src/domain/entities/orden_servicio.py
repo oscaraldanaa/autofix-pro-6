@@ -8,24 +8,53 @@ validaciones compuestas por Specifications, sin cambiar la API pública.
 """
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from datetime import datetime
-from typing import Mapping, Sequence
 
 from ..events import (
-    AmpliacionResuelta, CotizacionAutorizada, CotizacionComplementariaEnviada, CotizacionGenerada,
-    CotizacionParcialmenteAutorizada, CotizacionRechazada, DiagnosticoRegistrado, FallaAdicionalDetectada,
-    FechaModificada, OrdenCerrada, OrdenListaParaEntrega, OrdenRecibida, RefaccionRecibida,
-    RefaccionSinExistencia, RetrasoPorRefaccion, TrabajosAsignados,
+    AmpliacionResuelta,
+    CotizacionAutorizada,
+    CotizacionComplementariaEnviada,
+    CotizacionGenerada,
+    CotizacionParcialmenteAutorizada,
+    CotizacionRechazada,
+    DiagnosticoRegistrado,
+    FallaAdicionalDetectada,
+    FechaModificada,
+    OrdenCerrada,
+    OrdenListaParaEntrega,
+    OrdenRecibida,
+    RefaccionRecibida,
+    RefaccionSinExistencia,
+    RetrasoPorRefaccion,
+    TrabajosAsignados,
 )
 from ..shared import AggregateRoot, ReglaDeNegocioViolada, ValorInvalido, utc_now
 from ..value_objects import (
-    CambioFechaEntrega, ClienteId, ConceptoId, CotizacionId, DatosRecepcion, Dinero, EstadoOrden,
-    EvidenciaAutorizacion, FechaEntrega, OrdenServicioId, Porcentaje, SolicitudAmpliacionId,
-    SolicitudRefaccionId, TecnicoId, TrabajoId, VehiculoId,
+    CambioFechaEntrega,
+    ClienteId,
+    ConceptoId,
+    CotizacionId,
+    DatosRecepcion,
+    Dinero,
+    EstadoOrden,
+    EvidenciaAutorizacion,
+    FechaEntrega,
+    OrdenServicioId,
+    Porcentaje,
+    SolicitudAmpliacionId,
+    SolicitudRefaccionId,
+    TecnicoId,
+    TrabajoId,
+    VehiculoId,
 )
 from .cliente import Cliente
 from .cotizacion import (
-    ConceptoCotizacion, Cotizacion, ResultadoCotizacion, TipoConcepto, TipoCotizacion,
+    ConceptoCotizacion,
+    Cotizacion,
+    ResultadoCotizacion,
+    TipoConcepto,
+    TipoCotizacion,
 )
 from .cuenta_flotilla import CondicionesFlotilla, CuentaFlotilla
 from .solicitudes import EstadoAmpliacion, SolicitudAmpliacion, SolicitudRefaccion
@@ -74,7 +103,7 @@ class OrdenServicio(AggregateRoot[OrdenServicioId]):
         cuenta_flotilla: CuentaFlotilla | None = None,
         id: OrdenServicioId | None = None,
         ahora: datetime | None = None,
-    ) -> "OrdenServicio":
+    ) -> OrdenServicio:
         """RN-01 (datos completos), RN-09 (reconocer flotilla), RN-14 (único autorizador)."""
         if vehiculo.es_de_flotilla:
             if cuenta_flotilla is None or cuenta_flotilla.id != vehiculo.cuenta_flotilla_id:

@@ -6,7 +6,11 @@ from datetime import datetime
 
 from ..shared import DomainEvent
 from ..value_objects import (
-    ConceptoId, OrdenServicioId, SolicitudAmpliacionId, SolicitudRefaccionId, TecnicoId,
+    ConceptoId,
+    OrdenServicioId,
+    SolicitudAmpliacionId,
+    SolicitudRefaccionId,
+    TecnicoId,
 )
 
 

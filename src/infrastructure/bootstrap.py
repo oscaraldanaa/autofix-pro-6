@@ -6,13 +6,21 @@ from dataclasses import dataclass
 from sqlalchemy import Engine
 
 from ..application import use_cases as uc
-from ..application.handlers import NotificarCambioFechaEntrega, NotificarRetrasoPorRefaccion
+from ..application.handlers import (
+    NotificarCambioFechaEntrega,
+    NotificarRetrasoPorRefaccion,
+)
 from ..application.ports import EventBus, Notificador, UnitOfWorkFactory
 from ..domain.events import FechaModificada, OrdenEvent, RetrasoPorRefaccion
 from ..domain.value_objects import Porcentaje
 from .config import Settings, load_settings
 from .messaging import InProcessEventBus, LogNotificador
-from .persistence import SqlUnitOfWork, crear_engine, crear_session_factory, crear_tablas
+from .persistence import (
+    SqlUnitOfWork,
+    crear_engine,
+    crear_session_factory,
+    crear_tablas,
+)
 from .persistence.auditoria import AuditoriaEventosSql
 
 
@@ -57,7 +65,7 @@ def crear_contenedor(settings: Settings | None = None, crear_esquema: bool = Tru
     if crear_esquema:
         crear_tablas(engine)
     sf = crear_session_factory(engine)
-    uow_factory: UnitOfWorkFactory = lambda: SqlUnitOfWork(sf)  # noqa: E731
+    uow_factory: UnitOfWorkFactory = lambda: SqlUnitOfWork(sf)
 
     notificador = LogNotificador()
     bus = InProcessEventBus()

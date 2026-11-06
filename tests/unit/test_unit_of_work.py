@@ -3,8 +3,9 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from src.infrastructure.persistence.database import Base
+
 # Ajusta la ruta de importación según la ubicación real de tu clase SqlUnitOfWork
-from src.infrastructure.persistence.unit_of_work import SqlUnitOfWork 
+from src.infrastructure.persistence.unit_of_work import SqlUnitOfWork
 
 
 @pytest.fixture
@@ -45,10 +46,9 @@ def test_uow_exit_rollback_on_error(session_factory):
     """Valida que __exit__ ejecute el rollback y cierre la sesión si ocurre una excepción."""
     uow = SqlUnitOfWork(session_factory)
     
-    with pytest.raises(ValueError, match="Error simulado"):
-        with uow:
-            assert uow._session is not None
-            raise ValueError("Error simulado")
+    with pytest.raises(ValueError, match="Error simulado"), uow:
+        assert uow._session is not None
+        raise ValueError("Error simulado")
             
     # Al salir del bloque con excepción, __exit__ debe cerrar la sesión y limpiar la referencia
     assert uow._session is None

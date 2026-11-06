@@ -2,12 +2,18 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Callable, Iterable
+from collections.abc import Callable, Iterable
 
 from ..domain.entities import Cliente, CuentaFlotilla, OrdenServicio, Tecnico, Vehiculo
 from ..domain.shared import DomainEvent
 from ..domain.value_objects import (
-    ClienteId, CuentaFlotillaId, DatosContacto, OrdenServicioId, Placas, TecnicoId, VehiculoId,
+    ClienteId,
+    CuentaFlotillaId,
+    DatosContacto,
+    OrdenServicioId,
+    Placas,
+    TecnicoId,
+    VehiculoId,
 )
 
 
@@ -75,7 +81,7 @@ class UnitOfWork(ABC):
     cuentas_flotilla: CuentaFlotillaRepository
 
     @abstractmethod
-    def __enter__(self) -> "UnitOfWork": ...
+    def __enter__(self) -> UnitOfWork: ...
     @abstractmethod
     def __exit__(self, exc_type, exc, tb) -> None: ...
     @abstractmethod

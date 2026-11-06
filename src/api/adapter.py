@@ -8,8 +8,12 @@ from contextlib import contextmanager
 from typing import Any
 from uuid import UUID
 
+from src.domain.exceptions import (  # ← ajustar si difiere
+    DomainError,
+    EntityNotFoundError,
+)
+
 from src.api.ports import OrdenNoEncontradaError, ReglaNegocioError
-from src.domain.exceptions import DomainError, EntityNotFoundError  # ← ajustar si difiere
 
 
 @contextmanager

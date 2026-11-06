@@ -1,13 +1,13 @@
-import pytest
+from src.infrastructure.bootstrap import Contenedor, crear_contenedor
 from src.infrastructure.config import Settings
 from src.infrastructure.persistence.database import (
-    Base, 
-    crear_engine, 
-    crear_session_factory, 
-    crear_tablas
+    Base,
+    crear_engine,
+    crear_session_factory,
+    crear_tablas,
 )
-from src.infrastructure.bootstrap import crear_contenedor, Contenedor
 from src.infrastructure.persistence.unit_of_work import SqlUnitOfWork
+
 
 def test_config_initialization():
     """Valida que la configuración de infraestructura cargue correctamente."""

@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TypeVar
+from typing import Self, TypeVar
 from uuid import UUID, uuid4
 
 from ..shared import ValorInvalido, ValueObject
@@ -19,11 +19,11 @@ class EntityId(ValueObject):
             raise ValorInvalido(f"{type(self).__name__} requiere un UUID, recibió {type(self.value).__name__}")
 
     @classmethod
-    def generar(cls: type[T]) -> T:
+    def generar(cls) -> Self:
         return cls(uuid4())
 
     @classmethod
-    def desde_str(cls: type[T], texto: str) -> T:
+    def desde_str(cls, texto: str) -> Self:
         try:
             return cls(UUID(texto))
         except ValueError as exc:

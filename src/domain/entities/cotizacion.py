@@ -6,15 +6,19 @@ por separado y conservar su evidencia (ver ADR-001, sección "Ajustes").
 """
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum
-from typing import Mapping
 
 from ..shared import Entity, ReglaDeNegocioViolada, ValorInvalido, ValueObject
 from ..value_objects import (
-    ConceptoId, CotizacionId, Dinero, EvidenciaAutorizacion, Porcentaje,
+    ConceptoId,
+    CotizacionId,
+    Dinero,
+    EvidenciaAutorizacion,
+    Porcentaje,
 )
 
 
