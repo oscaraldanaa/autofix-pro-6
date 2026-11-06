@@ -19,3 +19,10 @@ def register_error_handlers(app: FastAPI) -> None:
             status_code=409,
             content={"codigo": "REGLA_NEGOCIO", "regla": exc.regla, "detail": str(exc)},
         )
+
+class BaseAPIException(Exception):
+    """Excepción base para errores controlados de la API REST."""
+    def __init__(self, message: str, status_code: int = 400):
+        self.message = message
+        self.status_code = status_code
+        super().__init__(self.message)
