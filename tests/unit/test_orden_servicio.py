@@ -1,12 +1,12 @@
 import pytest
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from src.domain.entities.orden_servicio import OrdenServicio
 from src.domain.value_objects import (
     OrdenServicioId, ClienteId, VehiculoId, DatosRecepcion, NivelCombustible,
-    Kilometraje, SolicitudRefaccionId, ConceptoId, TecnicoId
+    Kilometraje, SolicitudRefaccionId, ConceptoId, TecnicoId, FechaEntrega
 )
-from src.domain.shared import ValorInvalido, ReglaDeNegocioViolada
+from src.domain.shared import ValorInvalido, ReglaDeNegocioViolada, utc_now
 from src.domain.value_objects.estado_orden import EstadoOrden
 from src.domain.entities.solicitudes import SolicitudRefaccion
 from src.domain.entities.solicitudes import SolicitudAmpliacion, EstadoAmpliacion
@@ -76,3 +76,20 @@ def test_registrar_falla_adicional_descripcion_vacia():
     with pytest.raises(ValorInvalido, match="La descripción de la falla adicional es obligatoria"):
         orden.registrar_falla_adicional(TecnicoId.generar(), "   ")
 
+def test_orden_inactiva_bloquea_fecha_entrega():
+    """Cubre las guardas de _requerir_activa cuando la orden está cerrada o cancelada."""
+    datos = DatosRecepcion(Kilometraje(1000), NivelCombustible("lleno"), (), "Revisión")
+    orden = OrdenServicio(
+        OrdenServicioId.generar(), ClienteId.generar(), VehiculoId.generar(),
+        ClienteId.generar(), datos, utc_now()
+    )
+    
+    # Forzamos un estado inactivo (CERRADO)
+    orden._estado = EstadoOrden.CERRADO
+    
+    # Intenta programar fecha en una orden cerrada, lo que debe disparar la excepción de regla de negocio
+    fecha_futura = FechaEntrega(utc_now() + timedelta(days=2))
+    with pytest.raises(ReglaDeNegocioViolada) as exc_info:
+        orden.programar_fecha_entrega(fecha_futura)
+        
+    assert "cerrado" in str(exc_info.value).lower()
