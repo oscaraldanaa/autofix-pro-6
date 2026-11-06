@@ -1,0 +1,36 @@
+"""Puerto que la capa API necesita de la capa de aplicación.
+
+La API NO conoce el dominio ni la infraestructura: sólo habla con este
+contrato (ADR-002, CQRS básico: Commands + Queries). El adaptador real está
+en `adapter.py`; en pruebas se sustituye por un doble en memoria.
+"""
+from typing import Any, Protocol
+from uuid import UUID
+
+
+class OrdenNoEncontradaError(Exception):
+    """La orden (o el vehículo) solicitado no existe."""
+
+
+class ReglaNegocioError(Exception):
+    """Se violó una regla de negocio o una transición de estado inválida."""
+
+    def __init__(self, mensaje: str, regla: str | None = None):
+        super().__init__(mensaje)
+        self.regla = regla
+
+
+class OrdenServicePort(Protocol):
+    # --- Commands ---
+    def registrar_ingreso(self, datos: dict[str, Any]) -> dict[str, Any]: ...
+    def registrar_diagnostico(self, orden_id: UUID, datos: dict[str, Any]) -> dict[str, Any]: ...
+    def generar_cotizacion(self, orden_id: UUID, datos: dict[str, Any]) -> dict[str, Any]: ...
+    def responder_cotizacion(self, orden_id: UUID, datos: dict[str, Any]) -> dict[str, Any]: ...
+    def asignar_trabajos(self, orden_id: UUID, datos: dict[str, Any]) -> dict[str, Any]: ...
+    def registrar_falla_adicional(self, orden_id: UUID, datos: dict[str, Any]) -> dict[str, Any]: ...
+    def modificar_fecha_entrega(self, orden_id: UUID, datos: dict[str, Any]) -> dict[str, Any]: ...
+    def marcar_listo_entrega(self, orden_id: UUID) -> dict[str, Any]: ...
+    def registrar_cobro(self, orden_id: UUID, datos: dict[str, Any]) -> dict[str, Any]: ...
+    # --- Queries ---
+    def consultar_estado(self, orden_id: UUID) -> dict[str, Any]: ...
+    def consultar_historial_vehiculo(self, placas: str) -> list[dict[str, Any]]: ...
