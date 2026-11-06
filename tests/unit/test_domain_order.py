@@ -30,3 +30,26 @@ def test_value_object_dinero():
     
     total = monto_a + monto_b
     assert total.monto == Decimal("2000.00")
+
+
+def test_value_object_dinero_resta():
+    """Verifica la operación de resta en el Value Object Dinero."""
+    monto_a = Dinero(Decimal("1500.00"))
+    monto_b = Dinero(Decimal("500.00"))
+    
+    diferencia = monto_a - monto_b
+    assert diferencia.monto == Decimal("1000.00")
+
+
+def test_value_object_dinero_igualdad():
+    """Verifica que dos instancias de Dinero con el mismo monto sean consideradas iguales."""
+    monto_a = Dinero(Decimal("750.50"))
+    monto_b = Dinero(Decimal("750.50"))
+    
+    assert monto_a == monto_b
+
+
+def test_estado_orden_basico():
+    """Valida la existencia de estados principales en el enum de EstadoOrden."""
+    assert EstadoOrden.RECIBIDO is not None
+    assert EstadoOrden.CERRADO is not None
