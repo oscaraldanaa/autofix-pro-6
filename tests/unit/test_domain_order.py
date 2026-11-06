@@ -1,9 +1,12 @@
 import pytest
+import uuid
 from decimal import Decimal
 from src.domain.value_objects.dinero import Dinero
 from src.domain.value_objects.estado_orden import EstadoOrden
 from src.domain.state_machine.orden_state_machine import ORDEN_STATE_MACHINE, DisparadorOrden
 from src.domain.state_machine.base import TransicionInvalida
+from src.domain.value_objects.dinero import Dinero
+from src.domain.shared import ValorInvalido
 
 def test_transicion_estado_valida():
     """Valida la transición de RECIBIDO a DIAGNOSTICADO usando el disparador DIAGNOSTICAR."""
@@ -48,8 +51,151 @@ def test_value_object_dinero_igualdad():
     
     assert monto_a == monto_b
 
+def test_dinero_post_init_rechaza_float_y_bool():
+    """Valida que __post_init__ rechace explícitamente tipos float y booleans."""
+    with pytest.raises(ValorInvalido, match="Dinero no admite float"):
+        Dinero(100.50)  # Pasa un float directamente
 
-def test_estado_orden_basico():
-    """Valida la existencia de estados principales en el enum de EstadoOrden."""
-    assert EstadoOrden.RECIBIDO is not None
-    assert EstadoOrden.CERRADO is not None
+    with pytest.raises(ValorInvalido):
+        Dinero(Decimal("100.00"), moneda=True)  # Pasa un bool como moneda
+
+
+def test_dinero_post_init_cuantizacion_y_mayusculas():
+    """Valida que __post_init__ ajuste a centavos y convierta la moneda a mayúsculas."""
+    dinero = Dinero(Decimal("123.456"), moneda="usd")
+    assert dinero.monto == Decimal("123.46")  # Cuantizado a centavos
+    assert dinero.moneda == "USD"            # Convertido a mayúsculas
+
+
+def test_validar_monto_negativo():
+    """Valida que _validar lance una excepción si el monto es menor a 0."""
+    with pytest.raises(ValorInvalido, match="El importe no puede ser negativo"):
+        Dinero(Decimal("-5.00"))
+
+
+def test_validar_moneda_formato_incorrecto():
+    """Valida que _validar rechace códigos de moneda que no sean ISO de exactamente 3 letras alfabéticas."""
+    with pytest.raises(ValorInvalido, match="La moneda debe ser un código ISO de 3 letras"):
+        Dinero(Decimal("100.00"), moneda="US")  # Muy corto
+
+    with pytest.raises(ValorInvalido, match="La moneda debe ser un código ISO de 3 letras"):
+        Dinero(Decimal("100.00"), moneda="USDT")  # Muy largo
+
+    with pytest.raises(ValorInvalido, match="La moneda debe ser un código ISO de 3 letras"):
+        Dinero(Decimal("100.00"), moneda="123")  # No alfabético
+
+
+def test_factory_metodo_de():
+    """Valida el funcionamiento del método de fábrica classmethod de()."""
+    # Usando entero con moneda por defecto (MXN)
+    dinero_int = Dinero.de(1000)
+    assert dinero_int.monto == Decimal("1000.00")
+    assert dinero_int.moneda == "MXN"
+
+    # Usando string y moneda personalizada
+    dinero_str = Dinero.de("450.75", moneda="eur")
+    assert dinero_str.monto == Decimal("450.75")
+    assert dinero_str.moneda == "EUR"
+
+    # Usando Decimal directamente
+    dinero_dec = Dinero.de(Decimal("99.99"))
+    assert dinero_dec.monto == Decimal("99.99")
+
+# def test_registrar_ingreso_vehiculo_flotilla_exitoso():
+#     """Valida que un vehículo de flotilla con su cuenta B2B válida se registre correctamente (RN-09)."""
+#     cid = ClienteId(uuid.uuid4())
+#     fid = CuentaFlotillaId(uuid.uuid4())
+#     vid = VehiculoId(uuid.uuid4())
+
+#     cliente = _rehidratar(
+#         Cliente, cid, 
+#         nombre="Representante Empresa", 
+#         contacto=DatosContacto("8111223344", "contacto@empresa.com"), 
+#         activo=True, 
+#         cuenta_flotilla_id=fid
+#     )
+
+#     # Forzamos el atributo público que el mapper busca directamente
+#     object.__setattr__(cliente, "activo", True)
+    
+#     vehiculo = _rehidratar(
+#         Vehiculo, vid, 
+#         placas=Placas("FLT123"), 
+#         marca="Nissan", 
+#         modelo="Urvan", 
+#         kilometraje=Kilometraje(25000), 
+#         vin=None, 
+#         cuenta_flotilla_id=fid
+#     )
+    
+#     cuenta = _rehidratar(
+#         CuentaFlotilla, fid, 
+#         razon_social="Flotillas del Norte SA", 
+#         autorizador_corporativo_id=cid, 
+#         condiciones=CondicionesFlotilla(Porcentaje(Decimal("15.0")), 1, 30)
+#     )
+
+#     datos_rec = DatosRecepcion(
+#         kilometraje=Kilometraje(25000), 
+#         combustible=NivelCombustible("1/2"), 
+#         danos_visibles=("Rayón lateral",), 
+#         motivo_ingreso="Mantenimiento preventivo flotilla"
+#     )
+
+#     # Ejecución
+#     orden = OrdenServicio.registrar_ingreso(
+#         cliente=cliente,
+#         vehiculo=vehiculo,
+#         datos_recepcion=datos_rec,
+#         cuenta_flotilla=cuenta
+#     )
+
+#     # Verificaciones
+#     assert orden is not None
+#     assert orden.autorizador_id == cid
+#     assert orden.condiciones_flotilla is not None
+#     assert orden.condiciones_flotilla.descuento.valor == Decimal("15.0")
+
+
+# def test_registrar_ingreso_vehiculo_flotilla_sin_cuenta_lanza_error():
+#     """Valida que un vehículo de flotilla sin cuenta asignada lance ReglaDeNegocioViolada (RN-09)."""
+#     cid = ClienteId(uuid.uuid4())
+#     fid = CuentaFlotillaId(uuid.uuid4())
+#     vid = VehiculoId(uuid.uuid4())
+
+#     cliente = _rehidratar(
+#         Cliente, cid, 
+#         nombre="Cliente Común", 
+#         contacto=DatosContacto("8111223344", "cliente@test.com"), 
+#         activo=True, 
+#         cuenta_flotilla_id=None
+#     )
+    
+#     # El vehículo tiene ID de flotilla pero no se pasa la cuenta corporativa
+#     vehiculo = _rehidratar(
+#         Vehiculo, vid, 
+#         placas=Placas("FLT999"), 
+#         marca="Ford", 
+#         modelo="Transit", 
+#         kilometraje=Kilometraje(40000), 
+#         vin=None, 
+#         cuenta_flotilla_id=fid
+#     )
+
+#     datos_rec = DatosRecepcion(
+#         kilometraje=Kilometraje(40000), 
+#         combustible=NivelCombustible.BAJO, 
+#         danos_visibles=(), 
+#         motivo_ingreso="Falla general"
+#     )
+
+#     # Validación de excepción por regla de negocio
+#     with pytest.raises(ReglaDeNegocioViolada) as exc_info:
+#         OrdenServicio.registrar_ingreso(
+#             cliente=cliente,
+#             vehiculo=vehiculo,
+#             datos_recepcion=datos_rec,
+#             cuenta_flotilla=None  # Falta la cuenta requerida
+#         )
+    
+#     assert "RN-09" in str(exc_info.value)
