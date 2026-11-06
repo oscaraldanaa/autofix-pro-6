@@ -1,7 +1,7 @@
 from .aggregate_root import AggregateRoot
 from .domain_event import DomainEvent, utc_now
 from .entity import Entity
-from .exceptions import DomainError, ReglaDeNegocioViolada, ValorInvalido
+from .exceptions import DomainError, ReglaDeNegocioViolada, ValorInvalido, EntidadNoEncontrada
 from .value_object import ValueObject
 
 __all__ = [
