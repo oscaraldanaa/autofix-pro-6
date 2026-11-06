@@ -70,6 +70,8 @@ class SolicitudAmpliacion(Entity[SolicitudAmpliacionId]):
     estado = property(lambda s: s._estado)
     cotizacion = property(lambda s: s._cotizacion)
 
+    
+
     def adjuntar_cotizacion(self, cotizacion: Cotizacion) -> None:
         if self._estado is not EstadoAmpliacion.PENDIENTE_COTIZACION:
             raise ReglaDeNegocioViolada("RN-04", "La ampliación ya tiene cotización complementaria")
