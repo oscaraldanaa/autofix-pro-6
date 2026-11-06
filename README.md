@@ -7,7 +7,7 @@ Plataforma para digitalizar el ciclo completo de una **Orden de Servicio** de un
 con autorizaciones digitales auditables (RN-05, RN-10, RN-11), control de fechas prometidas (RN-06),
 gestión de refacciones faltantes (RN-07) y atención de flotillas B2B (RN-09).
 
-- **Repositorio:** `<URL del repositorio>`  ·  **Sistema desplegado:** `<URL del despliegue>`  ·  **Swagger UI:** `<URL>/docs`
+- **Repositorio:** https://github.com/oscaraldanaa/autofix-pro-6  ·  **Sistema desplegado:** `<URL del despliegue>`  ·  **Swagger UI:** `<URL>/docs`
 
 ## 1. Arquitectura
 
