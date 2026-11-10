@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#C8102E">
+  <title>AutoFix Pro · Taller y flotillas</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='32' fill='%23C8102E'/%3E%3Cpath d='M22 44l14-14a8 8 0 0 1 10-10l-5 5 3 3 5-5a8 8 0 0 1-10 10L26 48z' fill='white'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/web/styles.css">
+</head>
+<body>
+  <a class="saltar" href="#contenido">Saltar al contenido</a>
+
+  <div id="app" class="app" hidden>
+    <aside id="lateral" class="lateral" aria-label="Menú principal">
+      <div class="marca">
+        <span class="marca__logo" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+        </span>
+        <span class="marca__texto"><strong>AutoFix</strong> Pro<small>Taller y flotillas</small></span>
+      </div>
+      <nav id="menu" class="menu"></nav>
+      <div class="lateral__pie">
+        <button class="btn btn--fantasma-blanco btn--bloque" data-act="ayuda">
+          <span data-icono="help"></span> ¿Cómo funciona?
+        </button>
+        <p>PIA · Equipo 6<br>FIME-UANL</p>
+      </div>
+    </aside>
+    <div id="velo" class="velo" data-act="menu-cerrar" hidden></div>
+
+    <div class="principal">
+      <header class="barra">
+        <button class="barra__menu" data-act="menu-abrir" aria-label="Abrir menú"><span data-icono="menu"></span></button>
+        <h1 id="titulo-vista" class="barra__titulo">Inicio</h1>
+        <div class="barra__der">
+          <span id="estado-sistema" class="sistema" title="Estado de la conexión con el sistema"><i></i><span>Conectando…</span></span>
+          <button id="chip-perfil" class="chip-perfil" data-act="cambiar-perfil" title="Cambiar de perfil"></button>
+        </div>
+      </header>
+      <main id="contenido" class="contenido" tabindex="-1"></main>
+    </div>
+  </div>
+
+  <div id="perfiles" class="perfiles" hidden></div>
+  <div id="toasts" class="toasts" aria-live="polite" aria-atomic="false"></div>
+
+  <noscript><p style="padding:2rem;font:16px sans-serif">Esta aplicación necesita JavaScript habilitado en su navegador.</p></noscript>
+  <script src="/web/app.js"></script>
+</body>
+</html>

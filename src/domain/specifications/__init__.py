@@ -1,22 +1,12 @@
-from .base import Specification
+from .base import AndSpecification, NotSpecification, OrSpecification, Specification
+from .reglas_catalogo import ClienteActivoSpec, MontoMinimoSpec, TecnicoDisponibleSpec
+from .reglas_operacion import (
+    ClientePreferenteSpec, ContextoOperacion, OrdenAutorizadaSpec, OrdenConDetalleSpec, PromocionActivaSpec,
+    SobreCliente, SobreOrden, TotalMinimoSpec, beneficio_referencia, criterios, puede_procesarse,
+)
+from .reglas_orden import (
+    OrdenEsDeFlotillaSpec, OrdenListaParaEntregaSpec, RefaccionesDisponiblesSpec,
+    SinAmpliacionesPendientesSpec, TieneTrabajosSpec, TodosTrabajosRevisadosSpec,
+)
 
-
-class OrdenListaParaEntregaSpec(Specification):
-    def is_satisfied_by(self, candidate) -> bool:
-        return True
-
-class RefaccionesDisponiblesSpec(Specification):
-    def is_satisfied_by(self, candidate) -> bool:
-        return True
-
-class ClienteActivoSpec(Specification):
-    def is_satisfied_by(self, candidate) -> bool:
-        return True
-
-class MontoMinimoSpec(Specification):
-    def is_satisfied_by(self, candidate) -> bool:
-        return True
-
-class TecnicoDisponibleSpec(Specification):
-    def is_satisfied_by(self, candidate) -> bool:
-        return True
+__all__ = [n for n in dir() if not n.startswith("_")]

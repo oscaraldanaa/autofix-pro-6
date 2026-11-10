@@ -1,8 +1,0 @@
-[tool.ruff]
-select = ["E", "F", "B", "BLE"]
-ignore = [
-    "F401",  # Ignora imports no utilizados (común en __init__.py)
-    "B008",  # Ignora llamadas a funciones en valores por defecto (ej. Porcentaje.de)
-    "BLE001",# Excepciones ciegas en tests
-    "B017"   # pytest.raises(Exception) genérico en tests
-]

@@ -17,10 +17,6 @@ class ReglaDeNegocioViolada(DomainError):
         self.regla = regla
         self.mensaje = mensaje
 
-class EntidadNoEncontrada(ReglaDeNegocioViolada):
-    """Lanzada cuando un repositorio o servicio no encuentra una entidad por su identificador."""
-    def __init__(self, entidad: str, id_valor: object, regla: str = "RN-404") -> None:
-        self.entidad = entidad
-        self.id_valor = id_valor
-        mensaje = f"No se encontró la entidad '{entidad}' con ID '{id_valor}'."
-        super().__init__(regla=regla, mensaje=mensaje)
+
+class EntidadNoEncontrada(DomainError):
+    """No existe la entidad solicitada (la capa API la traduce a 404)."""

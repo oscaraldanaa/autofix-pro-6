@@ -1,7 +1,7 @@
 """DTOs de entrada (comandos) y salida. Solo tipos primitivos/Decimal/datetime."""
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
 
@@ -18,10 +18,13 @@ class EvidenciaDTO:
 
 @dataclass(frozen=True)
 class ConceptoNuevoDTO:
-    tipo: str                       # mano_de_obra | refaccion
-    descripcion: str
-    precio_unitario: Decimal
+    """Concepto libre (descripcion + precio) o de catálogo (recurso_id: toma precio oficial y valida capacidad)."""
+
+    tipo: str = "mano_de_obra"      # mano_de_obra | refaccion
+    descripcion: str | None = None
+    precio_unitario: Decimal | None = None
     cantidad: Decimal = Decimal(1)
+    recurso_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -30,6 +33,22 @@ class RegistrarClienteCmd:
     telefono: str | None = None
     email: str | None = None
     cuenta_flotilla_id: str | None = None
+    activo: bool = True
+    es_preferente: bool = False
+
+
+@dataclass(frozen=True)
+class CambiarEstadoClienteCmd:
+    cliente_id: str
+    activo: bool
+
+
+@dataclass(frozen=True)
+class RegistrarItemCatalogoCmd:
+    descripcion: str
+    precio_mxn: Decimal
+    capacidad: int
+    habilitado: bool = True
 
 
 @dataclass(frozen=True)
@@ -65,6 +84,7 @@ class RegistrarIngresoCmd:
     combustible: str                # vacio | 1/4 | 1/2 | 3/4 | lleno
     motivo_ingreso: str
     danos_visibles: tuple[str, ...] = ()
+    promocion_activa: bool = False
 
 
 @dataclass(frozen=True)
@@ -234,6 +254,7 @@ class OrdenDetalleDTO:
     vehiculo_id: str
     autorizador_id: str
     es_flotilla: bool
+    promocion_activa: bool
     creada_en: datetime
     kilometraje: int
     combustible: str
@@ -251,11 +272,85 @@ class OrdenDetalleDTO:
 
 
 @dataclass(frozen=True)
+class ItemCatalogoDTO:
+    id: str
+    descripcion: str
+    precio_mxn: Decimal
+    capacidad: int
+    habilitado: bool
+
+
+@dataclass(frozen=True)
+class EvaluacionOperacionDTO:
+    orden_id: str
+    cliente_id: str
+    total_referencia: Decimal
+    puede_procesarse: bool
+    beneficio_referencia: bool
+    criterios: dict[str, bool]
+
+
+@dataclass(frozen=True)
 class OrdenResumenDTO:
     id: str
     estado: str
     creada_en: datetime
     motivo_ingreso: str
+
+
+@dataclass(frozen=True)
+class OrdenListadoDTO:
+    """Fila del listado general de órdenes (tablero)."""
+
+    id: str
+    estado: str
+    cliente_id: str
+    vehiculo_id: str
+    creada_en: datetime
+    motivo_ingreso: str
+    es_flotilla: bool
+    fecha_entrega: datetime | None
+    total_autorizado: Decimal
+
+
+@dataclass(frozen=True)
+class ClienteDTO:
+    id: str
+    nombre: str
+    telefono: str | None
+    email: str | None
+    activo: bool
+    es_preferente: bool
+    cuenta_flotilla_id: str | None
+
+
+@dataclass(frozen=True)
+class VehiculoDTO:
+    id: str
+    placas: str
+    marca: str
+    modelo: str
+    kilometraje: int
+    vin: str | None
+    cuenta_flotilla_id: str | None
+
+
+@dataclass(frozen=True)
+class TecnicoDTO:
+    id: str
+    nombre: str
+    especialidad: str
+    disponible: bool
+
+
+@dataclass(frozen=True)
+class FlotillaDTO:
+    id: str
+    razon_social: str
+    autorizador_corporativo_id: str
+    descuento_pct: Decimal
+    prioridad: int
+    dias_credito: int
 
 
 def _concepto(c: ConceptoCotizacion) -> ConceptoDTO:
@@ -274,7 +369,7 @@ def a_orden_dto(o: OrdenServicio) -> OrdenDetalleDTO:
     r = o.datos_recepcion
     return OrdenDetalleDTO(
         id=str(o.id), estado=o.estado.value, cliente_id=str(o.cliente_id), vehiculo_id=str(o.vehiculo_id),
-        autorizador_id=str(o.autorizador_id), es_flotilla=o.es_flotilla, creada_en=o.creada_en,
+        autorizador_id=str(o.autorizador_id), es_flotilla=o.es_flotilla, promocion_activa=o.promocion_activa, creada_en=o.creada_en,
         kilometraje=r.kilometraje.km, combustible=r.combustible.value, danos_visibles=r.danos_visibles,
         motivo_ingreso=r.motivo_ingreso, hallazgos=o.hallazgos,
         fecha_entrega=o.fecha_entrega.fecha_estimada if o.fecha_entrega else None,

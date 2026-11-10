@@ -6,11 +6,7 @@ from datetime import datetime
 
 from ..shared import DomainEvent
 from ..value_objects import (
-    ConceptoId,
-    OrdenServicioId,
-    SolicitudAmpliacionId,
-    SolicitudRefaccionId,
-    TecnicoId,
+    ConceptoId, OrdenServicioId, SolicitudAmpliacionId, SolicitudRefaccionId, TecnicoId,
 )
 
 
@@ -103,3 +99,17 @@ class OrdenListaParaEntrega(OrdenEvent): ...
 
 @dataclass(frozen=True, kw_only=True)
 class OrdenCerrada(OrdenEvent): ...
+
+
+@dataclass(frozen=True, kw_only=True)
+class EstadoOrdenCambiado(OrdenEvent):
+    """Emitido por la State Machine en cada transición válida (auditoría RNF-01)."""
+
+    anterior: str
+    nuevo: str
+    disparador: str
+
+
+@dataclass(frozen=True, kw_only=True)
+class OrdenCancelada(OrdenEvent):
+    motivo: str

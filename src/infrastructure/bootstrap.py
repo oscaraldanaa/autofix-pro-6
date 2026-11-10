@@ -6,21 +6,13 @@ from dataclasses import dataclass
 from sqlalchemy import Engine
 
 from ..application import use_cases as uc
-from ..application.handlers import (
-    NotificarCambioFechaEntrega,
-    NotificarRetrasoPorRefaccion,
-)
+from ..application.handlers import NotificarCambioFechaEntrega, NotificarRetrasoPorRefaccion
 from ..application.ports import EventBus, Notificador, UnitOfWorkFactory
 from ..domain.events import FechaModificada, OrdenEvent, RetrasoPorRefaccion
 from ..domain.value_objects import Porcentaje
 from .config import Settings, load_settings
 from .messaging import InProcessEventBus, LogNotificador
-from .persistence import (
-    SqlUnitOfWork,
-    crear_engine,
-    crear_session_factory,
-    crear_tablas,
-)
+from .persistence import SqlUnitOfWork, crear_engine, crear_session_factory, crear_tablas
 from .persistence.auditoria import AuditoriaEventosSql
 
 
@@ -36,6 +28,9 @@ class Contenedor:
     registrar_vehiculo: uc.RegistrarVehiculo
     registrar_tecnico: uc.RegistrarTecnico
     registrar_cuenta_flotilla: uc.RegistrarCuentaFlotilla
+    cambiar_estado_cliente: uc.CambiarEstadoCliente
+    registrar_item_catalogo: uc.RegistrarItemCatalogo
+    consultar_catalogo: uc.ConsultarCatalogo
     # órdenes
     registrar_ingreso: uc.RegistrarIngresoVehiculo
     registrar_diagnostico: uc.RegistrarDiagnostico
@@ -57,6 +52,12 @@ class Contenedor:
     # consultas
     consultar_estado: uc.ConsultarEstadoOrden
     consultar_historial_vehiculo: uc.ConsultarHistorialVehiculo
+    evaluar_operacion: uc.EvaluarOperacion
+    listar_ordenes: uc.ListarOrdenes
+    listar_clientes: uc.ListarClientes
+    listar_vehiculos: uc.ListarVehiculos
+    listar_tecnicos: uc.ListarTecnicos
+    listar_flotillas: uc.ListarFlotillas
 
 
 def crear_contenedor(settings: Settings | None = None, crear_esquema: bool = True) -> Contenedor:
@@ -65,7 +66,7 @@ def crear_contenedor(settings: Settings | None = None, crear_esquema: bool = Tru
     if crear_esquema:
         crear_tablas(engine)
     sf = crear_session_factory(engine)
-    uow_factory: UnitOfWorkFactory = lambda: SqlUnitOfWork(sf)
+    uow_factory: UnitOfWorkFactory = lambda: SqlUnitOfWork(sf)  # noqa: E731
 
     notificador = LogNotificador()
     bus = InProcessEventBus()
@@ -78,10 +79,13 @@ def crear_contenedor(settings: Settings | None = None, crear_esquema: bool = Tru
     return Contenedor(
         settings, engine, uow_factory, bus, notificador,
         uc.RegistrarCliente(*a), uc.RegistrarVehiculo(*a), uc.RegistrarTecnico(*a), uc.RegistrarCuentaFlotilla(*a),
+        uc.CambiarEstadoCliente(*a), uc.RegistrarItemCatalogo(*a), uc.ConsultarCatalogo(*a),
         uc.RegistrarIngresoVehiculo(*a), uc.RegistrarDiagnostico(*a), uc.GenerarCotizacion(*a, tasa_impuesto=iva),
         uc.ResponderCotizacion(*a), uc.AsignarTrabajos(*a), uc.ReportarRefaccionSinExistencia(*a),
         uc.ActualizarReposicion(*a), uc.RecibirRefaccion(*a), uc.RegistrarFallaAdicional(*a),
         uc.EnviarCotizacionComplementaria(*a, tasa_impuesto=iva), uc.ResponderAmpliacion(*a),
         uc.DefinirFechaEntrega(*a), uc.FinalizarTrabajo(*a), uc.AprobarRevisionCalidad(*a),
         uc.MarcarListaParaEntrega(*a), uc.RegistrarCobroYCerrar(*a), uc.CancelarOrden(*a),
-        uc.ConsultarEstadoOrden(*a), uc.ConsultarHistorialVehiculo(*a))
+        uc.ConsultarEstadoOrden(*a), uc.ConsultarHistorialVehiculo(*a), uc.EvaluarOperacion(*a),
+        uc.ListarOrdenes(*a), uc.ListarClientes(*a), uc.ListarVehiculos(*a), uc.ListarTecnicos(*a),
+        uc.ListarFlotillas(*a))

@@ -6,19 +6,15 @@ por separado y conservar su evidencia (ver ADR-001, sección "Ajustes").
 """
 from __future__ import annotations
 
-from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum
+from typing import Mapping
 
 from ..shared import Entity, ReglaDeNegocioViolada, ValorInvalido, ValueObject
 from ..value_objects import (
-    ConceptoId,
-    CotizacionId,
-    Dinero,
-    EvidenciaAutorizacion,
-    Porcentaje,
+    ConceptoId, CotizacionId, Dinero, EvidenciaAutorizacion, Porcentaje, RecursoId,
 )
 
 
@@ -62,6 +58,7 @@ class ConceptoCotizacion(Entity[ConceptoId]):
         descripcion: str,
         precio_unitario: Dinero,
         cantidad: Decimal | int | str = 1,
+        recurso_id: RecursoId | None = None,
     ) -> None:
         super().__init__(id)
         cantidad = Decimal(str(cantidad))
@@ -73,6 +70,7 @@ class ConceptoCotizacion(Entity[ConceptoId]):
         self._descripcion = descripcion.strip()
         self._precio_unitario = precio_unitario
         self._cantidad = cantidad
+        self._recurso_id = recurso_id
         self._estado = EstadoConcepto.PENDIENTE
         self._evidencia: EvidenciaAutorizacion | None = None
 
@@ -80,6 +78,7 @@ class ConceptoCotizacion(Entity[ConceptoId]):
     descripcion = property(lambda s: s._descripcion)
     precio_unitario = property(lambda s: s._precio_unitario)
     cantidad = property(lambda s: s._cantidad)
+    recurso_id = property(lambda s: s._recurso_id)   # recurso del catálogo del que proviene (opcional)
     estado = property(lambda s: s._estado)
     evidencia = property(lambda s: s._evidencia)
 
@@ -124,6 +123,8 @@ class Cotizacion(Entity[CotizacionId]):
     tipo = property(lambda s: s._tipo)
     emitida_en = property(lambda s: s._emitida_en)
     respondida = property(lambda s: s._respondida)
+    tasa_impuesto = property(lambda s: s._tasa_impuesto)
+    descuento = property(lambda s: s._descuento)
 
     @property
     def conceptos(self) -> tuple[ConceptoCotizacion, ...]:

@@ -2,18 +2,12 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Iterable
+from typing import Callable, Iterable
 
-from ..domain.entities import Cliente, CuentaFlotilla, OrdenServicio, Tecnico, Vehiculo
+from ..domain.entities import Cliente, CuentaFlotilla, ItemCatalogo, OrdenServicio, Tecnico, Vehiculo
 from ..domain.shared import DomainEvent
 from ..domain.value_objects import (
-    ClienteId,
-    CuentaFlotillaId,
-    DatosContacto,
-    OrdenServicioId,
-    Placas,
-    TecnicoId,
-    VehiculoId,
+    ClienteId, CuentaFlotillaId, DatosContacto, OrdenServicioId, Placas, RecursoId, TecnicoId, VehiculoId,
 )
 
 
@@ -29,6 +23,9 @@ class OrdenServicioRepository(ABC):
     def listar_por_vehiculo(self, vehiculo_id: VehiculoId) -> list[OrdenServicio]: ...
     @abstractmethod
     def listar_por_cliente(self, cliente_id: ClienteId) -> list[OrdenServicio]: ...
+    @abstractmethod
+    def listar(self) -> list[OrdenServicio]:
+        """Todas las órdenes, de la más reciente a la más antigua."""
 
 
 class ClienteRepository(ABC):
@@ -38,6 +35,8 @@ class ClienteRepository(ABC):
     def buscar_por_id(self, id: ClienteId) -> Cliente | None: ...
     @abstractmethod
     def obtener(self, id: ClienteId) -> Cliente: ...
+    @abstractmethod
+    def listar(self) -> list[Cliente]: ...
 
 
 class VehiculoRepository(ABC):
@@ -49,6 +48,8 @@ class VehiculoRepository(ABC):
     def buscar_por_placas(self, placas: Placas) -> Vehiculo | None: ...
     @abstractmethod
     def obtener(self, id: VehiculoId) -> Vehiculo: ...
+    @abstractmethod
+    def listar(self) -> list[Vehiculo]: ...
 
 
 class TecnicoRepository(ABC):
@@ -60,6 +61,8 @@ class TecnicoRepository(ABC):
     def obtener(self, id: TecnicoId) -> Tecnico: ...
     @abstractmethod
     def listar_disponibles(self) -> list[Tecnico]: ...
+    @abstractmethod
+    def listar(self) -> list[Tecnico]: ...
 
 
 class CuentaFlotillaRepository(ABC):
@@ -69,6 +72,19 @@ class CuentaFlotillaRepository(ABC):
     def buscar_por_id(self, id: CuentaFlotillaId) -> CuentaFlotilla | None: ...
     @abstractmethod
     def obtener(self, id: CuentaFlotillaId) -> CuentaFlotilla: ...
+    @abstractmethod
+    def listar(self) -> list[CuentaFlotilla]: ...
+
+
+class ItemCatalogoRepository(ABC):
+    @abstractmethod
+    def guardar(self, item: ItemCatalogo) -> None: ...
+    @abstractmethod
+    def buscar_por_id(self, id: RecursoId) -> ItemCatalogo | None: ...
+    @abstractmethod
+    def obtener(self, id: RecursoId) -> ItemCatalogo: ...
+    @abstractmethod
+    def listar(self) -> list[ItemCatalogo]: ...
 
 
 class UnitOfWork(ABC):
@@ -79,9 +95,10 @@ class UnitOfWork(ABC):
     vehiculos: VehiculoRepository
     tecnicos: TecnicoRepository
     cuentas_flotilla: CuentaFlotillaRepository
+    catalogo: ItemCatalogoRepository
 
     @abstractmethod
-    def __enter__(self) -> UnitOfWork: ...
+    def __enter__(self) -> "UnitOfWork": ...
     @abstractmethod
     def __exit__(self, exc_type, exc, tb) -> None: ...
     @abstractmethod

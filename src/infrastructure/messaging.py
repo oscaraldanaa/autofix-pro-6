@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable, Iterable
+from typing import Callable, Iterable
 
 from ..application.ports import EventBus, Notificador
 from ..domain.shared import DomainEvent
@@ -25,7 +25,7 @@ class InProcessEventBus(EventBus):
                 if isinstance(evento, tipo):
                     try:
                         manejador(evento)
-                    except Exception:
+                    except Exception:  # noqa: BLE001
                         log.exception("Falló el manejador %s para %s", manejador, type(evento).__name__)
 
 

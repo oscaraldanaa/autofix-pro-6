@@ -1,162 +1,334 @@
 # AutoFix Pro — Sistema de Gestión y Trazabilidad Operativa
 
-Proyecto Integrador de Aprendizaje (PIA) · *Componentes de Lógica de Negocio* · FIME-UANL · Equipo 6
+**PIA — Componentes de Lógica de Negocio · FIME-UANL · Equipo 6**
+Hugo Arturo Villarreal Ortiz (2142659) · Enrique Canales Belmares (2142832) · Oscar Alexis Aldana Almanza (2144189)
 
-Plataforma para digitalizar el ciclo completo de una **Orden de Servicio** de un taller automotriz:
-`Recibido → Diagnosticado → Cotizado → Autorizado → En reparación → Listo para entrega → Cerrado`,
-con autorizaciones digitales auditables (RN-05, RN-10, RN-11), control de fechas prometidas (RN-06),
-gestión de refacciones faltantes (RN-07) y atención de flotillas B2B (RN-09).
+| | |
+|---|---|
+| Repositorio | `<URL-DEL-REPOSITORIO-GITHUB>` |
+| Sistema desplegado | `<URL-DEL-DESPLIEGUE>` · Swagger UI en `<URL-DEL-DESPLIEGUE>/docs` |
 
-- **Repositorio:** https://github.com/oscaraldanaa/autofix-pro-6  ·  **Sistema desplegado:** `<URL del despliegue>`  ·  **Swagger UI:** `<URL>/docs`
+AutoFix Pro es un taller automotriz. Su problema de negocio (BRD §2) es la **falta de evidencia auditable de las autorizaciones del cliente**, la poca visibilidad del avance y la mala comunicación de retrasos. Este sistema digitaliza el proceso completo — recepción → diagnóstico → cotización/autorización → reparación → entrega y cobro — y **hace cumplir por código** las reglas de negocio RN-01 a RN-14.
 
-## 1. Arquitectura
+---
+
+## 1. Contenido
+
+1. [Arquitectura](#2-arquitectura) · 2. [Estructura del repositorio](#3-estructura-del-repositorio) · 3. [Requisitos](#4-requisitos) · 4. [Instalación y ejecución local](#5-instalación-y-ejecución-local) · 5. [Ejecución con Docker](#6-ejecución-con-docker-compose) · 6. [Pruebas](#7-pruebas-y-cobertura) · 7. [API REST](#8-api-rest) · 8. [Demo en vivo](#9-guía-para-la-demo-en-vivo) · 9. [Datos del PIA](#10-paquete-de-datos-del-pia-datapia) · 10. [Trazabilidad](#11-trazabilidad-análisis--código--pruebas) · 11. [CI/CD](#12-cicd) · 12. [Despliegue](#13-despliegue) · 13. [Solución de problemas](#14-solución-de-problemas)
+
+---
+
+## 2. Arquitectura
+
+DDD táctico + Clean Architecture (detalle y alternativas en [`docs/architecture/ADR-001-DDD-y-Clean-Architecture.md`](docs/architecture/ADR-001-DDD-y-Clean-Architecture.md)). **La dependencia siempre apunta hacia adentro**; una prueba automatizada (`tests/unit/test_arquitectura.py`) la verifica.
 
 ```
-src/
-├── domain/          Entidades, Value Objects, Aggregate Root OrdenServicio, Specification, State Machine, eventos
-├── application/     Commands, Queries, Handlers, Application Services, Unit of Work (CQRS básico, ADR-002)
-├── infrastructure/  Repositorios SQL, UnitOfWork SQL, base de datos (ADR-003)
-└── api/             Capa de exposición REST (FastAPI)   ← Fase 4
-tests/               unit/ + integration/
-docs/                BRD.md, architecture/ (ADRs, diagramas), api/ (OpenAPI)
+ ┌──────────────────────────────────────────────────────────────┐
+ │ api (FastAPI)  controllers REST, esquemas, roles, OpenAPI     │
+ ├──────────────────────────────────────────────────────────────┤
+ │ infrastructure  SQLAlchemy, repositorios, UnitOfWork, bus,    │──implementa──┐
+ │                 notificador, config 12-Factor, bootstrap      │              │
+ ├──────────────────────────────────────────────────────────────┤              ▼
+ │ application     casos de uso, DTOs, PUERTOS (interfaces)      │◄─────── puertos
+ ├──────────────────────────────────────────────────────────────┤
+ │ domain          entidades, VO, agregado, Specification,       │  (Python puro)
+ │                 State Machine, eventos                        │
+ └──────────────────────────────────────────────────────────────┘
 ```
 
-Dirección de dependencias: `api → application → domain ← infrastructure`. La API **no contiene reglas de negocio** (ADR-004):
-solo valida formato (Pydantic), delega al puerto `OrdenServicePort` y traduce errores a HTTP:
+**Patrones aplicados:** Aggregate/Repository, **State Machine** (`src/domain/state_machine`), **Specification** (`src/domain/specifications`), Domain Events + Observer, Unit of Work, CQRS ligero, Factory Method, Ports & Adapters.
+**SOLID:** SRP (un VO/entidad por responsabilidad), OCP (nuevas reglas = nuevas Specifications/handlers), DIP (casos de uso dependen de puertos, no de SQLAlchemy), ISP (puertos pequeños), LSP (jerarquías `Entity`/`ValueObject`).
 
-| Situación | HTTP |
-|---|---|
-| Datos mal formados (p. ej. kilometraje negativo, cambio de fecha sin motivo) | **422** |
-| Orden/vehículo inexistente | **404** |
-| Regla de negocio o transición de estado violada (RN-xx) | **409** con `{"codigo","regla","detail"}` |
+### Ciclo de vida de la orden (State Machine)
 
-Archivos de `src/api/`: `main.py` (app + `/health`), `routers_ordenes.py` (endpoints), `schemas.py` (DTOs),
-`ports.py` (contrato con la aplicación), `adapter.py` (**único punto de integración**), `dependencies.py`
-(composition root), `errors.py`, `settings.py` (variables de entorno, 12-Factor).
+```
+Recibido → Diagnosticado → Cotizado → Autorizado → En reparación ⇄ En espera de refacción
+                              │            │             │
+                              ▼            ▼             ▼
+                          Cancelado    Cancelado   Listo para entrega → Cerrado
+```
+Transición inválida ⇒ `TransicionInvalida` (HTTP 409). Cada transición válida emite `EstadoOrdenCambiado`.
+Equivalencia con el enunciado: RECIBIDA=Recibido · DIAGNOSTICADA=Diagnosticado · EN_REPARACION · ENTREGADA=Cerrado · CANCELADA=Cancelado.
 
-### Integración con las capas de las Fases 1-3
+---
 
-`src/api/adapter.py` y `src/api/dependencies.py` asumen estos nombres; **ajústelos si su código difiere**
-(son los únicos dos archivos que conocen el resto del sistema):
+## 3. Estructura del repositorio
 
-| Asumido | Dónde se usa |
-|---|---|
-| `src.domain.exceptions.DomainError` y `EntityNotFoundError` | traducción a 409 / 404 |
-| `src.application.bootstrap.build_commands(session_factory)` y `build_queries(session_factory)` | construir fachadas de Commands y Queries con su `SqlUnitOfWork` |
-| Métodos snake_case de Commands: `registrar_ingreso_vehiculo`, `registrar_diagnostico`, `generar_cotizacion`, `responder_cotizacion`, `asignar_trabajos`, `registrar_falla_adicional`, `modificar_fecha_entrega`, `marcar_listo_entrega`, `registrar_cobro` | `OrdenServiceAdapter` |
-| Queries: `consultar_estado_orden`, `consultar_historial_vehiculo` | `OrdenServiceAdapter` |
+```
+mi-proyecto-cln/
+├── docs/
+│   ├── BRD.md                    ← (agregar el BRD final del equipo)
+│   ├── architecture/             ADR-001, dataset-vs-brd.md y diagramas (DDD, BPMN, UML)
+│   ├── trazabilidad.md           matriz BRD → regla → componente → prueba
+│   ├── evidencia/                resultados de los 120 casos y 20 transiciones del paquete
+│   └── api/openapi.json          especificación OpenAPI generada
+├── src/
+│   ├── domain/                   entities · value_objects · events · specifications · state_machine · shared
+│   ├── application/              use_cases · ports · dto · handlers
+│   ├── infrastructure/           persistence (modelos, mappers, repositorios, UoW) · config · messaging · bootstrap
+│   └── api/                      main · routers · esquemas · seguridad · errores · web/ (interfaz HTML/CSS/JS)
+├── tests/                        unit/ (domain, application, arquitectura) · integration/ (repositorios, API)
+├── data/pia/                     paquete de datos del PIA (CSV) + INSTRUCCIONES_ALUMNO.txt
+├── scripts/                      demo_flujo.py · exportar_openapi.py · ejecutar_dataset.py
+├── docker/mysql-init/            crea la BD de pruebas
+├── .github/workflows/ci.yml      CI/CD
+├── Dockerfile · docker-compose.yml · .env.example · requirements*.txt · pyproject.toml
+└── README.md
+```
 
-## 2. Endpoints y trazabilidad
+---
 
-Base: `/api/v1` · Documentación interactiva: **`/docs`** (Swagger UI), **`/redoc`**, **`/openapi.json`**.
+## 4. Requisitos
 
-| Método y ruta | Caso de uso / US | Regla(s) | Transición |
-|---|---|---|---|
-| `POST /ordenes` | US-01, US-17 | RN-01, RN-09 | → Recibido |
-| `GET /ordenes/{id}` | US-12 | RN-02 | — |
-| `GET /vehiculos/{placas}/historial` | Query historial | — | — |
-| `POST /ordenes/{id}/diagnostico` | US-02 | RN-01 | → Diagnosticado |
-| `POST /ordenes/{id}/cotizacion` | US-03 | RN-05 | → Cotizado |
-| `POST /ordenes/{id}/cotizacion/respuesta` | US-04 | RN-05, RN-10, RN-11 | → Autorizado |
-| `POST /ordenes/{id}/asignacion` | US-05 | RN-04, RN-13 | → En reparación |
-| `POST /ordenes/{id}/fallas-adicionales` | US-08 | RN-04 | pausa / ampliación |
-| `PUT /ordenes/{id}/fecha-entrega` | US-11 | RN-06 | — |
-| `POST /ordenes/{id}/listo-entrega` | US-14 | RN-01 | → Listo para entrega |
-| `POST /ordenes/{id}/cobro` | US-15 | RN-01 | → Cerrado |
+- Python **3.12+** (ejecución local) · Docker + Docker Compose v2 (ejecución en contenedores) · Git.
 
-La IP de origen del cliente se captura en `cotizacion/respuesta` para el registro auditable (RN-11).
-
-## 3. Instalación local (sin Docker)
-
-Requisitos: Python 3.12+, PostgreSQL 16 (o usar solo Docker).
+## 5. Instalación y ejecución local
 
 ```bash
-git clone <URL del repositorio> && cd <repo>
+git clone <URL-DEL-REPOSITORIO-GITHUB> && cd mi-proyecto-cln
 python -m venv .venv && source .venv/bin/activate      # Windows: .venv\Scripts\activate
 pip install -r requirements-dev.txt
-cp .env.example .env                                   # editar contraseña y DATABASE_URL (host=localhost)
-uvicorn src.api.main:app --reload
+cp .env.example .env                                   # Windows: copy .env.example .env
+python -m uvicorn src.api.main:app --reload            # o: python -m src.api
 ```
+Por defecto usa **SQLite** (`autofixpro.db`) y crea las tablas al arrancar. Abre <http://localhost:8000/docs>.
 
-Abrir http://localhost:8000/docs
+### Interfaz web para usuarios finales
 
-## 4. Ejecución con Docker Compose
+Con el servidor encendido, abre <http://localhost:8000/> (sin instalar nada más: HTML/CSS/JS estáticos en `src/api/web/`, servidos por la propia API).
+Diseño en rojo y blanco, pensado para personal sin conocimientos técnicos:
 
-```bash
-cp .env.example .env            # cambiar cambiar_esta_clave por una contraseña propia (en .env Y en DATABASE_URL)
-docker compose up --build       # levanta db (PostgreSQL) + app
-```
+- **Elige tu perfil** al entrar (asesor de servicio, técnico, compras, caja o cliente). Se envía como `X-Rol` (RN-12) y el menú y los botones cambian según el perfil.
+- **Inicio** con pendientes por perfil, **Órdenes** con búsqueda y filtros, y **detalle de la orden** con barra de avance y un bloque «Siguiente paso» que indica qué falta y quién debe hacerlo.
+- Formularios guiados para ingreso, diagnóstico, cotización (con catálogo), autorización total/parcial, asignación, refacciones, fallas adicionales, fecha de entrega, cobro y cancelación.
+- Los errores de la API (401/403/404/409/422) se muestran en español claro, sin códigos.
+- Pantallas de consulta y alta de clientes, vehículos, técnicos, flotillas y catálogo (para esto se añadieron los `GET` de listado: `/clientes`, `/vehiculos`, `/tecnicos`, `/flotillas`, `/ordenes`).
 
-- API: http://localhost:8000 · Swagger: http://localhost:8000/docs · Salud: http://localhost:8000/health
-- Detener: `docker compose down` · Borrar datos: `docker compose down -v`
-
-Servicios: `db` (Postgres con healthcheck), `app` (espera a que `db` esté sano), `tests` (perfil `test`, no arranca con `up`).
-
-## 5. Pruebas
-
-```bash
-# Local
-pytest                                  # incluye cobertura; FALLA si < 80 %
-pytest tests/unit                       # solo unitarias
-pytest tests/integration                # solo integración HTTP
-pytest --cov-report=html && open htmlcov/index.html
-
-# En contenedor dedicado
-docker compose run --rm tests
-```
-
-Estructura: `tests/unit` (esquemas, errores, adaptador, configuración, y las del dominio de las Fases 1-3) y
-`tests/integration` (flujo HTTP completo del BPMN con un doble en memoria del puerto, errores 404/409/422, OpenAPI).
-Agregue aquí las pruebas de dominio (Specification, State Machine, invariantes de `OrdenServicio`) para sostener el 80 %.
-
-## 6. CI/CD (`.github/workflows/ci.yml`)
-
-1. **test**: `ruff` + `pytest` (bloquea si cobertura < 80 %), publica `coverage.xml`.
-2. **docker**: construye imágenes, levanta `app`+`db`, verifica `/health` y `/docs`, corre el contenedor `tests`.
-3. **deploy** (solo `main`): llama al *Deploy Hook* de Render si existe el secret `RENDER_DEPLOY_HOOK`.
-
-## 7. Despliegue (Render, alternativa Railway/Fly.io)
-
-1. Crear **PostgreSQL** gestionado y copiar su *Internal Database URL* (con prefijo `postgresql+psycopg://`).
-2. Crear **Web Service** desde el repo, entorno *Docker*, *target* `app`. Render inyecta `$PORT` (ya soportado).
-3. Variables de entorno: `DATABASE_URL`, `ENVIRONMENT=production`. Health check path: `/health`.
-4. Copiar el *Deploy Hook* a GitHub → *Settings → Secrets* → `RENDER_DEPLOY_HOOK`.
-5. Verificar `https://<servicio>.onrender.com/docs` y poner la URL en este README.
-
-## 8. Guion para la demo en vivo (≈ 8 min)
-
-Abrir `/docs` y ejecutar con *Try it out* (o `curl`). Reemplace `{ID}` por el `id` devuelto.
-
-1. **Salud**: `GET /health` → `ok`.
-2. **US-01 Ingreso**: `POST /ordenes` → 201, estado `Recibido`. *Mostrar 422* repitiendo con `kilometraje: -5` (RN-01).
-3. **US-02 Diagnóstico** → `Diagnosticado`. **US-03 Cotización** (mano de obra + refacciones) → `Cotizado`.
-4. **Regla RN-13**: intentar `POST /ordenes/{ID}/asignacion` *antes* de autorizar → **409** `regla: RN-13`.
-5. **US-04 Autorización parcial**: `cotizacion/respuesta` autorizando un concepto y rechazando otro →
-   `Autorizado`, total recalculado; remarcar que se guarda timestamp + IP (RN-11).
-6. **US-05 Asignación** → `En reparación`. **US-08 Falla adicional** → solicitud de ampliación (RN-04).
-7. **US-11 Fecha**: `PUT fecha-entrega` con motivo; sin motivo → 422 (RN-06).
-8. **Cierre**: `listo-entrega` → `cobro` → `Cerrado`; intentar `cobro` otra vez → **409** (máquina de estados).
-9. **US-12 / Historial**: `GET /ordenes/{ID}` y `GET /vehiculos/{placas}/historial`.
-10. Mostrar el pipeline verde en GitHub Actions y `docker compose run --rm tests` con cobertura ≥ 80 %.
-
-```bash
-curl -X POST http://localhost:8000/api/v1/ordenes -H "Content-Type: application/json" -d '{
-  "cliente_id":"<uuid-de-cliente>","placas":"ABC-1234","modelo":"Nissan Versa 2020","kilometraje":45200,
-  "nivel_combustible":"1/2","danos_visibles":["Rayón puerta derecha"],"motivo_ingreso":"Ruido en frenos"}'
-```
-
-## 9. Preguntas de defensa frecuentes
-
-- **¿Por qué la API no tiene `if`s de negocio?** ADR-004: las reglas viven en `OrdenServicio` y Domain Services; la API valida formato y traduce errores.
-- **¿Dónde está CQRS?** ADR-002: `GET` → Queries con DTO de lectura; `POST/PUT` → Commands vía Handler + Unit of Work.
-- **¿Cómo se prueba sin base de datos?** Puerto `OrdenServicePort` + `dependency_overrides` (Dependency Inversion, SOLID).
-- **12-Factor**: configuración solo por variables de entorno (`.env.example` sin secretos), logs a stdout, procesos sin estado.
-
-## 10. Variables de entorno
+### Variables de entorno (12-Factor, factor III)
 
 | Variable | Descripción | Ejemplo |
 |---|---|---|
-| `DATABASE_URL` | Cadena SQLAlchemy | `postgresql+psycopg://user:pass@db:5432/autofix` |
-| `POSTGRES_USER/PASSWORD/DB` | Credenciales del contenedor `db` | `autofix` |
-| `ENVIRONMENT` | `development` / `production` | `development` |
-| `APP_PORT` | Puerto publicado en local | `8000` |
+| `DATABASE_URL` | URL de SQLAlchemy (SQLite o MySQL) | `sqlite:///./autofixpro.db` · `mysql+pymysql://user:pass@db:3306/autofixpro` |
+| `APP_ENV` | `development` · `test` · `production` | `development` |
+| `LOG_LEVEL` | Nivel de logs | `INFO` |
+| `API_HOST` / `API_PORT` | Dirección y puerto (también puerto publicado en Docker) | `0.0.0.0` / `8000` |
+| `TASA_IVA` | % aplicado a cotizaciones (supuesto a validar) | `16` |
+| `CANAL_NOTIFICACIONES` | Canal de avisos (`log` implementado) | `log` |
+| `SQL_ECHO` | Imprime el SQL (depuración) | `false` |
+| `MYSQL_DATABASE`, `MYSQL_USER`, `MYSQL_PASSWORD`, `MYSQL_ROOT_PASSWORD` | Solo para el contenedor MySQL | ver `.env.example` |
+| `TEST_DATABASE_URL` | BD para la suite de pruebas (si no se define, SQLite en memoria) | `mysql+pymysql://…/autofixpro_test` |
+
+> `.env` está en `.gitignore`. `.env.example` no contiene secretos reales: **cambie los `CAMBIAR_*`**. Si la contraseña tiene caracteres especiales (`@ : / #`) debe ir codificada en URL.
+
+---
+
+## 6. Ejecución con Docker Compose
+
+Levanta **MySQL 8 + aplicación**; las pruebas viven en un contenedor aparte (perfil `test`).
+
+```bash
+cp .env.example .env            # editar contraseñas
+docker compose up --build -d    # db + app
+docker compose ps               # esperar a que db esté "healthy"
+curl http://localhost:8000/health
+# Swagger UI → http://localhost:8000/docs
+```
+Contenedor de pruebas (usa la BD `<MYSQL_DATABASE>_test`, no toca los datos de la app):
+```bash
+docker compose --profile test run --rm tests
+```
+Otros comandos útiles:
+```bash
+docker compose logs -f app          # ver notificaciones y errores
+docker compose down                 # detener (conserva datos)
+docker compose down -v              # detener y BORRAR la base de datos
+```
+> El script `docker/mysql-init/01-crear-bd-pruebas.sh` solo corre al crear el volumen. Si ya tenía uno, use `docker compose down -v` una vez.
+
+---
+
+## 7. Pruebas y cobertura
+
+```bash
+pytest                                     # toda la suite; falla si la cobertura < 80 %
+pytest tests/unit                          # solo unitarias (rápidas, sin BD)
+pytest tests/integration                   # repositorios SQL + API
+pytest --cov-report=html && open htmlcov/index.html
+TEST_DATABASE_URL="mysql+pymysql://user:pass@localhost:3306/autofixpro_test" pytest --no-cov   # contra MySQL
+docker compose --profile test run --rm tests                                                    # en contenedor
+```
+Estado actual: **108 pruebas, cobertura ≈ 98 %** (umbral exigido: 80 %, configurado en `pyproject.toml`).
+
+| Nivel | Qué valida |
+|---|---|
+| `unit/domain` | Value Objects (invariantes), Specifications (AND/OR/NOT), State Machine, reglas del agregado y entidades |
+| `unit/application` | Casos de uso con repositorios en memoria (`tests/fakes.py`): publicación de eventos tras commit, rollback, handlers de notificación |
+| `unit/test_arquitectura.py` | El dominio no importa SQLAlchemy/FastAPI/capas externas |
+| `integration/test_repositorios.py` | Persistencia SQL, reconstitución fiel del agregado, no duplicación de hijos, rollback |
+| `integration/test_dataset_pia.py` | Paquete de datos del PIA: integridad de los CSV, 120 casos de regla y 20 transiciones contra la API, con oráculo independiente |
+| `integration/test_api_catalogo.py` | Catálogo, validación de cantidad/capacidad/habilitado, baja de clientes, endpoint de evaluación |
+| `integration/test_api_flujo.py` | Ciclo completo por HTTP, roles (401/403), errores (404/409/422), auditoría y evidencia RN-11 |
+
+---
+
+## 8. API REST
+
+Swagger UI: `/docs` · ReDoc: `/redoc` · OpenAPI: `/openapi.json` (copia en `docs/api/openapi.json`; regenerar con `python scripts/exportar_openapi.py`).
+
+**Autenticación simplificada (RN-12):** cabecera `X-Rol` con uno de los cinco roles del BRD. En Swagger use el botón **Authorize**. Las consultas (`GET`) son abiertas (portal del cliente, RN-02).
+
+| Endpoint (`/api/v1`) | Rol | US / RN |
+|---|---|---|
+| `POST /clientes` · `/vehiculos` · `/tecnicos` · `/flotillas` | asesor | RN-10, RN-09 |
+| `PATCH /clientes/{id}/estado` — alta/baja | asesor | EXT-01 |
+| `POST /catalogo` · `GET /catalogo` | asesor · público | CAT-01/02 |
+| `GET /ordenes/{id}/evaluacion` — `puede_procesarse` y `beneficio_referencia` | público | Specification |
+| `POST /ordenes` — ingreso y apertura de OT | asesor | US-01 · RN-01/09/14 |
+| `GET /ordenes/{id}` — estado | público | US-12 · RN-02 |
+| `POST /ordenes/{id}/diagnostico` | técnico | US-02 |
+| `POST /ordenes/{id}/cotizacion` | asesor | US-03 · RN-05 |
+| `POST /ordenes/{id}/cotizacion/respuesta` | cliente | US-04 · RN-05/11 |
+| `POST /ordenes/{id}/trabajos` — asignar | asesor | US-05 · RN-13 |
+| `POST /ordenes/{id}/refacciones-faltantes` | técnico, asesor | US-06 · RN-07 |
+| `PATCH …/refacciones-faltantes/{sid}/reposicion` | compras, asesor | US-07 · RN-03 |
+| `POST …/refacciones-faltantes/{sid}/recepcion` | compras | RN-07 |
+| `POST /ordenes/{id}/fallas-adicionales` | técnico | US-08 · RN-04 |
+| `POST …/fallas-adicionales/{sid}/cotizacion` | asesor | US-09 |
+| `POST …/fallas-adicionales/{sid}/respuesta` | cliente | US-10 · RN-13 |
+| `PUT /ordenes/{id}/fecha-entrega` | asesor | US-11 · RN-06 |
+| `POST …/trabajos/{tid}/finalizacion` · `/revision` | técnico · asesor | US-13 |
+| `POST /ordenes/{id}/listo-para-entrega` | asesor | US-14 |
+| `POST /ordenes/{id}/cobro` | caja | US-15 |
+| `POST /ordenes/{id}/cancelacion` | asesor | — |
+| `GET /vehiculos/{id}/historial` · `GET /health` | público | — |
+| `GET /ordenes` · `/clientes` · `/vehiculos` · `/tecnicos` · `/flotillas` — listados para la interfaz web | público | RN-02 |
+
+**Códigos:** `401` falta/rol desconocido · `403` rol sin permiso · `404` no existe · `409` regla de negocio o transición inválida (incluye `regla: "RN-xx"`) · `422` dato inválido.
+**Evidencia (RN-11):** al responder una cotización el servidor registra el sello de tiempo y la IP del request (o un token de verificación si no hay IP válida).
+Importes como `Decimal`; en JSON salen como cadena (`"1508.58"`).
+**Identificadores:** son `str` (no UUID) con prefijo legible por tipo, p. ej. `ORD-9F2C41AB07D3E856`, `CLI-…`, `VEH-…`, `TEC-…`, `COT-…`; máximo 36 caracteres, sin espacios (`src/domain/value_objects/identificadores.py`).
+
+---
+
+## 9. Guía para la demo en vivo
+
+**Preparación (5 min antes):** `docker compose up --build -d` (o ejecución local), abrir `/docs`, tener `docker compose logs -f app` en otra terminal y `htmlcov/index.html` o el resultado de `pytest` listo.
+
+**Opción A — guion automático** (recomendado; muestra todos los pasos con ✔/✘):
+```bash
+python scripts/demo_flujo.py --url http://localhost:8000 --pausas
+```
+`--pausas` espera Enter en cada paso para que el equipo comente.
+
+**Opción B — manual en Swagger** (Authorize con el rol de cada paso): ver tabla de la sección 8.
+
+**Qué demostrar y qué regla/patrón lo respalda**
+
+| Paso | Muestra | Respalda |
+|---|---|---|
+| Ingreso con datos completos | Orden en *Recibido* | RN-01 |
+| Técnico intenta abrir orden → **403** | Control por rol | RN-12 |
+| Cotizar sin diagnóstico → **409** con estados permitidos | **State Machine** | RN-01 |
+| Cliente autoriza **parcialmente** | Total autorizado ≠ total cotizado; evidencia con IP y sello de tiempo | RN-05, RN-11 |
+| Asignación | Solo se crean trabajos de lo autorizado | RN-13 |
+| Refacción faltante + reposición | Estado *En espera*; **notificación en logs** | RN-07, RN-03 |
+| Cambio de fecha con justificación | Historial conservado + aviso | RN-06 |
+| Falla adicional → cotización complementaria | Nada se ejecuta sin autorización | RN-04 |
+| Entrega sin revisar → **409** | **Specification** compuesta (`OrdenListaParaEntregaSpec`) | RF-14 |
+| Cobro distinto al autorizado → **409**; exacto → *Cerrado* | Solo se cobra lo autorizado | RF-15 |
+| `GET` de estado sin rol | Portal del cliente | RN-02 |
+
+**Evidencia de auditoría en BD** (RNF-01): `SELECT tipo, ocurrido_en FROM eventos_dominio ORDER BY ocurrido_en;` y `SELECT ev_canal, ev_ip, ev_sello_tiempo FROM conceptos_cotizacion WHERE ev_canal IS NOT NULL;`
+
+**Preguntas técnicas probables y dónde responderlas**
+- *¿Por qué `Cotizacion` es entidad y no VO como en el diagrama?* → ADR-001 §2.5 (decisión por concepto con evidencia).
+- *¿Cómo se garantiza que el dominio no dependa del framework?* → `tests/unit/test_arquitectura.py`.
+- *¿Dónde viven las reglas de transición?* → `src/domain/state_machine/orden_state_machine.py` (tabla declarativa + guardas Specification).
+- *¿Qué pasa si falla una notificación?* → el bus la aísla; la operación ya confirmada no se revierte (`infrastructure/messaging.py`).
+- *¿Cómo se persiste el agregado?* → modelos separados + mappers (`infrastructure/persistence/mappers.py`), `merge` por clave primaria con cascade.
+
+---
+
+## 10. Paquete de datos del PIA (`data/pia`)
+
+El docente entrega 40 actores, 20 recursos, 60 operaciones, 117 líneas de detalle, 120 casos de regla y 20 pruebas de transición.
+Se cargan con `Decimal`, se siembran **por la API real con los roles del BRD** y se contrastan con un oráculo independiente
+(`tests/dataset/oraculo.py`).
+
+```bash
+python scripts/ejecutar_dataset.py          # genera docs/evidencia/*.csv y resumen.md (código de salida ≠ 0 si algo no coincide)
+pytest tests/integration/test_dataset_pia.py
+```
+
+| Resultado | Detalle |
+|---|---|
+| `validar_operacion` (`puede_procesarse`) | 43 VERDADERO · 17 FALSO |
+| `evaluar_beneficio` (`beneficio_referencia`) | 9 VERDADERO · 51 FALSO |
+| Transiciones | 4 aprobar · 4 cancelar · 4 repetir_aprobación (2.º rechazado) · 4 saltar_estado (rechazado) · 4 completar (2 ENTREGADA, 2 bloqueadas) |
+
+Las diferencias entre el paquete y el análisis propio (promociones, cliente preferente, catálogo con capacidad, estados extra,
+interpretación de las acciones, códigos `EXT-01`/`CAT-01`/`CAT-02`) están documentadas en
+[`docs/architecture/dataset-vs-brd.md`](docs/architecture/dataset-vs-brd.md). **El oráculo y la interpretación de las acciones son del equipo**:
+la solución oficial es del docente y debe contrastarse con `docs/evidencia/`.
+
+---
+
+## 11. Trazabilidad (análisis → código → pruebas)
+
+| Regla BRD | User Story | Dominio / aplicación | Prueba |
+|---|---|---|---|
+| RN-01 datos completos | US-01 | `DatosRecepcion`, `OrdenServicio.registrar_ingreso` | `test_value_objects`, `test_orden_servicio::TestIngreso` |
+| RN-02 consulta en tiempo real | US-12 | `ConsultarEstadoOrden`, `GET /ordenes/{id}` | `test_api_flujo` |
+| RN-03 aviso de retraso | US-07 | `actualizar_reposicion` → `RetrasoPorRefaccion` → `NotificarRetrasoPorRefaccion` | `test_casos_de_uso`, `test_api_flujo` |
+| RN-04 falla adicional | US-08/09/10 | `SolicitudAmpliacion`, cotización complementaria | `TestRefaccionesYFallas` |
+| RN-05 autorización total/parcial | US-04 | `Cotizacion.responder` | `TestCotizacionYAutorizacion` |
+| RN-06 historial de fechas | US-11 | `CambioFechaEntrega`, `modificar_fecha_entrega` | `TestFechaEntrega` |
+| RN-07 solicitud a Compras | US-06 | `SolicitudRefaccion`, evento `RefaccionSinExistencia` | `test_rn07_*` |
+| RN-09 flotilla | US-17 | `CuentaFlotilla`, descuento en `Cotizacion` | `TestIngreso`, `test_flotilla_*` |
+| RN-10 medio digital | — | `DatosContacto` | `TestContactoYVehiculo` |
+| RN-11 sello de tiempo + IP/token | — | `EvidenciaAutorizacion`, `construir_evidencia` | `test_rn11_*`, `test_ciclo_completo…` |
+| RN-12 cinco roles | — | `src/api/seguridad.py` | `test_roles_rn12` |
+| RN-13 solo lo autorizado | US-05 | `_construir_trabajos` | `test_rn13_*` |
+| RN-14 único autorizador | — | `OrdenServicio.autorizador_id` | `test_rn14_*` |
+| RF-14/RF-15 entrega y cobro | US-14/15 | `OrdenListaParaEntregaSpec`, `registrar_cobro_y_cerrar` | `test_guardas_con_specification`, `TestCierre` |
+
+La matriz completa (con pruebas y casos del paquete) está en [`docs/trazabilidad.md`](docs/trazabilidad.md).
+
+**Pendiente de la fase de análisis:** RN-08 / RF-16 (reportes e indicadores gerenciales) y la notificación por SMS/correo reales (hoy canal `log`) no están implementados; el BRD los marca con umbrales «a validar».
+
+---
+
+## 12. CI/CD
+
+`.github/workflows/ci.yml` (en cada push/PR a `main`):
+1. **test** — instala dependencias, ejecuta `pytest` con cobertura (falla < 80 %), sube `coverage.xml`.
+2. **test-mysql** — corre la suite contra un servicio MySQL 8.
+3. **docker** — valida `docker-compose.yml`, construye imágenes `runtime` y `test`; en `main` publica en GitHub Container Registry (`ghcr.io/<owner>/<repo>`).
+4. **deploy** — en `main`, si existe el secreto `DEPLOY_HOOK_URL`, dispara el despliegue (Render/Railway).
+
+## 13. Despliegue
+
+La imagen `runtime` respeta la variable `PORT` y expone `/health`, por lo que sirve en Render, Railway o Fly.io:
+1. Crear una base MySQL gestionada y copiar su URL como `mysql+pymysql://usuario:clave@host:3306/base`.
+2. Crear un *Web Service* desde el repositorio (Dockerfile, `target: runtime` — en Render, "Docker" usa el último stage; para fijar el stage use `docker build --target runtime` o un `render.yaml`).
+3. Definir variables: `DATABASE_URL`, `APP_ENV=production`, `LOG_LEVEL=INFO`.
+4. Health check: `/health`. Verificar `<URL>/docs` y guardar la URL en este README.
+5. (Opcional) Copiar el *Deploy Hook* a un secreto de GitHub llamado `DEPLOY_HOOK_URL`.
+
+## 14. Solución de problemas
+
+| Síntoma | Causa / solución |
+|---|---|
+| `docker compose` dice «Defina MYSQL_PASSWORD…» | Falta `.env`: `cp .env.example .env` |
+| `app` reinicia con error de conexión | MySQL aún inicia; espere a `healthy` (`docker compose ps`) |
+| `Access denied for user … _test` | El volumen de MySQL ya existía: `docker compose down -v` y vuelva a levantar |
+| `401 Falta la cabecera X-Rol` | Pulse **Authorize** en Swagger o envíe `-H "X-Rol: asesor_servicio"` |
+| `409 … no es válido en estado …` | Orden en otro estado; consulte `GET /ordenes/{id}` |
+| Contraseña con `@` o `#` rompe `DATABASE_URL` | Codifíquela en URL (`@` → `%40`) |
+| `cryptography` requerido | MySQL 8 usa `caching_sha2_password`: `pip install -r requirements.txt` |
+
+## Alcance y supuestos
+
+- IVA 16 % y descuento de flotilla 0 % por defecto: valores **a validar** con el stakeholder (BRD §6.2, §14).
+- Autenticación por cabecera `X-Rol` (suficiente para el alcance del PIA); en producción real se sustituiría por JWT/OAuth2 manteniendo `requiere_rol`.
+- El esquema se crea con `create_all`; migraciones (Alembic) quedan como trabajo futuro.

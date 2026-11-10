@@ -2,9 +2,9 @@
 from __future__ import annotations
 
 import os
-from collections.abc import Mapping
 from dataclasses import dataclass
 from decimal import Decimal
+from typing import Mapping
 
 
 def _cargar_dotenv() -> None:
@@ -23,7 +23,7 @@ class Settings:
     log_level: str = "INFO"
     api_host: str = "0.0.0.0"
     api_port: int = 8000
-    tasa_iva: Decimal = Decimal(16)
+    tasa_iva: Decimal = Decimal("16")
     canal_notificaciones: str = "log"
 
     @property

@@ -1,15 +1,12 @@
 from __future__ import annotations
 
-from collections.abc import Callable
 from datetime import datetime
+from typing import Callable
 
 from ...domain.entities import OrdenServicio
 from ...domain.shared import utc_now
 from ...domain.value_objects import (
-    CanalAutorizacion,
-    ConceptoId,
-    EvidenciaAutorizacion,
-    OrdenServicioId,
+    CanalAutorizacion, ConceptoId, EvidenciaAutorizacion, OrdenServicioId,
 )
 from ..dto import EvidenciaDTO, OrdenDetalleDTO, a_orden_dto
 from ..ports import EventBus, UnitOfWork, UnitOfWorkFactory

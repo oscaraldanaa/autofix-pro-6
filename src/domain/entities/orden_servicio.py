@@ -2,63 +2,35 @@
 
 Frontera de consistencia: cotizaciones, trabajos, solicitudes de refacción,
 solicitudes de ampliación y fechas de entrega solo se modifican a través de
-esta raíz. Las precondiciones de estado están como guardas simples
-(``_requerir_estado``); en la Fase 2 se sustituyen por la State Machine y las
-validaciones compuestas por Specifications, sin cambiar la API pública.
+esta raíz. Todo cambio de estado pasa por la State Machine
+(``ORDEN_STATE_MACHINE``), cuyas guardas son Specifications; cada transición
+válida registra el evento ``EstadoOrdenCambiado``.
 """
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
 from datetime import datetime
+from typing import Mapping, Sequence
 
 from ..events import (
-    AmpliacionResuelta,
-    CotizacionAutorizada,
-    CotizacionComplementariaEnviada,
-    CotizacionGenerada,
-    CotizacionParcialmenteAutorizada,
-    CotizacionRechazada,
-    DiagnosticoRegistrado,
-    FallaAdicionalDetectada,
-    FechaModificada,
-    OrdenCerrada,
-    OrdenListaParaEntrega,
-    OrdenRecibida,
-    RefaccionRecibida,
-    RefaccionSinExistencia,
-    RetrasoPorRefaccion,
-    TrabajosAsignados,
+    AmpliacionResuelta, CotizacionAutorizada, CotizacionComplementariaEnviada, CotizacionGenerada,
+    CotizacionParcialmenteAutorizada, CotizacionRechazada, DiagnosticoRegistrado, EstadoOrdenCambiado,
+    FallaAdicionalDetectada, FechaModificada, OrdenCancelada, OrdenCerrada, OrdenListaParaEntrega,
+    OrdenRecibida, RefaccionRecibida, RefaccionSinExistencia, RetrasoPorRefaccion, TrabajosAsignados,
 )
 from ..shared import AggregateRoot, ReglaDeNegocioViolada, ValorInvalido, utc_now
 from ..value_objects import (
-    CambioFechaEntrega,
-    ClienteId,
-    ConceptoId,
-    CotizacionId,
-    DatosRecepcion,
-    Dinero,
-    EstadoOrden,
-    EvidenciaAutorizacion,
-    FechaEntrega,
-    OrdenServicioId,
-    Porcentaje,
-    SolicitudAmpliacionId,
-    SolicitudRefaccionId,
-    TecnicoId,
-    TrabajoId,
-    VehiculoId,
+    CambioFechaEntrega, ClienteId, ConceptoId, CotizacionId, DatosRecepcion, Dinero, EstadoOrden,
+    EvidenciaAutorizacion, FechaEntrega, OrdenServicioId, Porcentaje, SolicitudAmpliacionId,
+    SolicitudRefaccionId, TecnicoId, TrabajoId, VehiculoId,
 )
+from ..state_machine import ORDEN_STATE_MACHINE, DisparadorOrden
 from .cliente import Cliente
 from .cotizacion import (
-    ConceptoCotizacion,
-    Cotizacion,
-    ResultadoCotizacion,
-    TipoConcepto,
-    TipoCotizacion,
+    ConceptoCotizacion, Cotizacion, ResultadoCotizacion, TipoConcepto, TipoCotizacion,
 )
 from .cuenta_flotilla import CondicionesFlotilla, CuentaFlotilla
 from .solicitudes import EstadoAmpliacion, SolicitudAmpliacion, SolicitudRefaccion
-from .trabajo_reparacion import EstadoTrabajo, TrabajoReparacion
+from .trabajo_reparacion import TrabajoReparacion
 from .vehiculo import Vehiculo
 
 _IVA_POR_DEFECTO = Porcentaje.de(16)  # supuesto a validar con el stakeholder
@@ -74,6 +46,7 @@ class OrdenServicio(AggregateRoot[OrdenServicioId]):
         datos_recepcion: DatosRecepcion,
         creada_en: datetime,
         condiciones_flotilla: CondicionesFlotilla | None = None,
+        promocion_activa: bool = False,
     ) -> None:
         super().__init__(id)
         self._cliente_id = cliente_id
@@ -82,6 +55,7 @@ class OrdenServicio(AggregateRoot[OrdenServicioId]):
         self._datos_recepcion = datos_recepcion
         self._creada_en = creada_en
         self._condiciones_flotilla = condiciones_flotilla
+        self._promocion_activa = promocion_activa
         self._estado = EstadoOrden.RECIBIDO
         self._hallazgos: tuple[str, ...] = ()
         self._tecnico_diagnostico: TecnicoId | None = None
@@ -103,7 +77,8 @@ class OrdenServicio(AggregateRoot[OrdenServicioId]):
         cuenta_flotilla: CuentaFlotilla | None = None,
         id: OrdenServicioId | None = None,
         ahora: datetime | None = None,
-    ) -> OrdenServicio:
+        promocion_activa: bool = False,
+    ) -> "OrdenServicio":
         """RN-01 (datos completos), RN-09 (reconocer flotilla), RN-14 (único autorizador)."""
         if vehiculo.es_de_flotilla:
             if cuenta_flotilla is None or cuenta_flotilla.id != vehiculo.cuenta_flotilla_id:
@@ -113,7 +88,7 @@ class OrdenServicio(AggregateRoot[OrdenServicioId]):
         else:
             autorizador, condiciones = cliente.id, None
         orden = cls(id or OrdenServicioId.generar(), cliente.id, vehiculo.id, autorizador,
-                    datos_recepcion, ahora or utc_now(), condiciones)
+                    datos_recepcion, ahora or utc_now(), condiciones, promocion_activa)
         orden._registrar_evento(OrdenRecibida(orden_id=orden.id, es_flotilla=condiciones is not None))
         return orden
 
@@ -128,6 +103,9 @@ class OrdenServicio(AggregateRoot[OrdenServicioId]):
     cotizacion_inicial = property(lambda s: s._cotizacion_inicial)
     fecha_entrega = property(lambda s: s._fecha_entrega)
     monto_cobrado = property(lambda s: s._monto_cobrado)
+    condiciones_flotilla = property(lambda s: s._condiciones_flotilla)
+    promocion_activa = property(lambda s: s._promocion_activa)
+    tecnico_diagnostico_id = property(lambda s: s._tecnico_diagnostico)
 
     @property
     def es_flotilla(self) -> bool:
@@ -150,6 +128,12 @@ class OrdenServicio(AggregateRoot[OrdenServicioId]):
         return tuple(self._historial_fechas)
 
     @property
+    def total_referencia(self) -> Dinero:
+        """Suma(precio × cantidad) de la cotización inicial, sin descuento ni impuestos."""
+        cot = self._cotizacion_inicial
+        return cot.desglose.subtotal_bruto if cot else Dinero.cero()
+
+    @property
     def total_autorizado(self) -> Dinero:
         """RF-15: suma (con descuento e impuestos) de los conceptos autorizados."""
         cotizaciones = [self._cotizacion_inicial] if self._cotizacion_inicial else []
@@ -158,22 +142,21 @@ class OrdenServicio(AggregateRoot[OrdenServicioId]):
 
     # ------------------------------------------------------------------ diagnóstico (RF-02)
     def registrar_diagnostico(self, tecnico_id: TecnicoId, hallazgos: Sequence[str]) -> None:
-        self._requerir_estado("RN-01", EstadoOrden.RECIBIDO)
         limpios = tuple(h.strip() for h in hallazgos if h and h.strip())
         if not limpios:
             raise ValorInvalido("El diagnóstico requiere al menos un hallazgo")
+        self._transicionar(DisparadorOrden.DIAGNOSTICAR)
         self._hallazgos, self._tecnico_diagnostico = limpios, tecnico_id
-        self._estado = EstadoOrden.DIAGNOSTICADO
         self._registrar_evento(DiagnosticoRegistrado(orden_id=self.id, tecnico_id=tecnico_id))
 
     # ------------------------------------------------------------------ cotización (RF-03, RF-04)
     def generar_cotizacion(self, conceptos: Sequence[ConceptoCotizacion],
                            tasa_impuesto: Porcentaje = _IVA_POR_DEFECTO, ahora: datetime | None = None) -> None:
-        self._requerir_estado("RN-05", EstadoOrden.DIAGNOSTICADO)
-        self._cotizacion_inicial = Cotizacion(
+        cotizacion = Cotizacion(
             CotizacionId.generar(), TipoCotizacion.INICIAL, list(conceptos), ahora or utc_now(),
             tasa_impuesto, self._descuento())
-        self._estado = EstadoOrden.COTIZADO
+        self._transicionar(DisparadorOrden.COTIZAR)
+        self._cotizacion_inicial = cotizacion
         self._registrar_evento(CotizacionGenerada(orden_id=self.id))
 
     def responder_cotizacion(self, decisiones: Mapping[ConceptoId, bool], evidencia: EvidenciaAutorizacion) -> None:
@@ -183,10 +166,10 @@ class OrdenServicio(AggregateRoot[OrdenServicioId]):
         assert cot is not None
         cot.responder(decisiones, evidencia)
         if cot.resultado is ResultadoCotizacion.RECHAZADA:
-            self._estado = EstadoOrden.CANCELADO
+            self._transicionar(DisparadorOrden.RECHAZAR_COTIZACION)
             self._registrar_evento(CotizacionRechazada(orden_id=self.id))
             return
-        self._estado = EstadoOrden.AUTORIZADO
+        self._transicionar(DisparadorOrden.AUTORIZAR)
         if cot.resultado is ResultadoCotizacion.AUTORIZADA:
             self._registrar_evento(CotizacionAutorizada(orden_id=self.id))
         else:
@@ -197,19 +180,19 @@ class OrdenServicio(AggregateRoot[OrdenServicioId]):
 
     # ------------------------------------------------------------------ asignación (RF-05)
     def asignar_trabajos(self, tecnico_id: TecnicoId) -> None:
-        self._requerir_estado("RN-04", EstadoOrden.AUTORIZADO)
+        self._requerir_estado("RN-13", EstadoOrden.AUTORIZADO)
         assert self._cotizacion_inicial is not None
-        nuevos = self._crear_trabajos(self._cotizacion_inicial, tecnico_id)
+        nuevos = self._construir_trabajos(self._cotizacion_inicial, tecnico_id)
         if not nuevos:
             raise ReglaDeNegocioViolada("RN-13", "No hay trabajos de mano de obra autorizados para asignar")
-        self._estado = EstadoOrden.EN_REPARACION
+        self._transicionar(DisparadorOrden.INICIAR_REPARACION)
+        self._trabajos.extend(nuevos)
         self._registrar_evento(TrabajosAsignados(orden_id=self.id, tecnico_id=tecnico_id))
 
     # ------------------------------------------------------------------ refacciones (RF-06, RF-07)
     def reportar_refaccion_sin_existencia(self, concepto_id: ConceptoId, reposicion_estimada: datetime | None = None,
                                           ahora: datetime | None = None) -> SolicitudRefaccion:
-        self._requerir_estado("RN-07", EstadoOrden.AUTORIZADO, EstadoOrden.EN_REPARACION,
-                              EstadoOrden.EN_ESPERA_REFACCION)
+        self._requerir_estado("RN-07", EstadoOrden.EN_REPARACION, EstadoOrden.EN_ESPERA_REFACCION)
         concepto = next((c for c in self._conceptos_autorizados() if c.id == concepto_id), None)
         if concepto is None or concepto.tipo is not TipoConcepto.REFACCION:
             raise ReglaDeNegocioViolada("RN-07", "El concepto no es una refacción autorizada de esta orden")
@@ -218,7 +201,8 @@ class OrdenServicio(AggregateRoot[OrdenServicioId]):
         solicitud = SolicitudRefaccion(SolicitudRefaccionId.generar(), concepto_id, concepto.descripcion,
                                        ahora or utc_now(), reposicion_estimada)
         self._solicitudes_refaccion.append(solicitud)
-        self._estado = EstadoOrden.EN_ESPERA_REFACCION
+        if self._estado is EstadoOrden.EN_REPARACION:
+            self._transicionar(DisparadorOrden.ESPERAR_REFACCION)
         self._registrar_evento(RefaccionSinExistencia(orden_id=self.id, solicitud_id=solicitud.id))
         return solicitud
 
@@ -236,7 +220,7 @@ class OrdenServicio(AggregateRoot[OrdenServicioId]):
         self._solicitud_refaccion(solicitud_id).marcar_recibida()
         self._registrar_evento(RefaccionRecibida(orden_id=self.id, solicitud_id=solicitud_id))
         if not any(s.pendiente for s in self._solicitudes_refaccion):
-            self._estado = EstadoOrden.EN_REPARACION
+            self._transicionar(DisparadorOrden.REANUDAR_REPARACION)
 
     # ------------------------------------------------------------------ fallas adicionales (RF-08..RF-10)
     def registrar_falla_adicional(self, tecnico_id: TecnicoId, descripcion: str,
@@ -271,7 +255,7 @@ class OrdenServicio(AggregateRoot[OrdenServicioId]):
             raise ReglaDeNegocioViolada("RN-04", "La ampliación no tiene una cotización pendiente de autorización")
         solicitud.cotizacion.responder(decisiones, evidencia)
         solicitud.resolver()
-        self._crear_trabajos(solicitud.cotizacion, solicitud.tecnico_id)
+        self._trabajos.extend(self._construir_trabajos(solicitud.cotizacion, solicitud.tecnico_id))
         self._registrar_evento(AmpliacionResuelta(orden_id=self.id, solicitud_id=solicitud_id,
                                                   resultado=solicitud.cotizacion.resultado.value))
 
@@ -307,12 +291,7 @@ class OrdenServicio(AggregateRoot[OrdenServicioId]):
         self._trabajo(trabajo_id).aprobar_revision()
 
     def marcar_lista_para_entrega(self) -> None:
-        self._requerir_estado("RN-01", EstadoOrden.EN_REPARACION)
-        if not self._trabajos or any(t.estado is not EstadoTrabajo.REVISADO for t in self._trabajos):
-            raise ReglaDeNegocioViolada("RN-01", "Todos los trabajos autorizados deben estar revisados")
-        if any(s.estado is not EstadoAmpliacion.RESUELTA for s in self._solicitudes_ampliacion):
-            raise ReglaDeNegocioViolada("RN-04", "Hay ampliaciones pendientes de cotizar o autorizar")
-        self._estado = EstadoOrden.LISTO_PARA_ENTREGA
+        self._transicionar(DisparadorOrden.PREPARAR_ENTREGA)  # guarda: OrdenListaParaEntregaSpec
         self._registrar_evento(OrdenListaParaEntrega(orden_id=self.id))
 
     def registrar_cobro_y_cerrar(self, monto: Dinero) -> None:
@@ -321,11 +300,26 @@ class OrdenServicio(AggregateRoot[OrdenServicioId]):
         if monto != self.total_autorizado:
             raise ReglaDeNegocioViolada(
                 "RN-04", f"El cobro ({monto}) debe igualar el total autorizado ({self.total_autorizado})")
+        self._transicionar(DisparadorOrden.CERRAR)
         self._monto_cobrado = monto
-        self._estado = EstadoOrden.CERRADO
         self._registrar_evento(OrdenCerrada(orden_id=self.id))
 
+    def cancelar(self, motivo: str) -> None:
+        """Cancelación voluntaria; solo antes de iniciar la reparación (State Machine)."""
+        if not motivo or not motivo.strip():
+            raise ValorInvalido("El motivo de cancelación es obligatorio")
+        self._transicionar(DisparadorOrden.CANCELAR)
+        self._registrar_evento(OrdenCancelada(orden_id=self.id, motivo=motivo.strip()))
+
     # ------------------------------------------------------------------ internos
+    def _transicionar(self, disparador: DisparadorOrden) -> None:
+        """Único punto donde cambia ``_estado``: valida con la State Machine y emite el evento."""
+        anterior = self._estado
+        nuevo = ORDEN_STATE_MACHINE.destino(anterior, disparador, self)  # lanza TransicionInvalida
+        self._estado = nuevo
+        self._registrar_evento(EstadoOrdenCambiado(
+            orden_id=self.id, anterior=anterior.value, nuevo=nuevo.value, disparador=disparador.value))
+
     def _requerir_estado(self, regla: str, *permitidos: EstadoOrden) -> None:
         if self._estado not in permitidos:
             esperados = ", ".join(e.value for e in permitidos)
@@ -343,12 +337,11 @@ class OrdenServicio(AggregateRoot[OrdenServicioId]):
         cotizaciones += [s.cotizacion for s in self._solicitudes_ampliacion if s.cotizacion]
         return [c for cot in cotizaciones for c in cot.conceptos_autorizados]
 
-    def _crear_trabajos(self, cotizacion: Cotizacion, tecnico_id: TecnicoId) -> list[TrabajoReparacion]:
+    @staticmethod
+    def _construir_trabajos(cotizacion: Cotizacion, tecnico_id: TecnicoId) -> list[TrabajoReparacion]:
         """RN-13: un trabajo nace solo de un concepto de mano de obra autorizado."""
-        nuevos = [TrabajoReparacion(TrabajoId.generar(), c.id, c.descripcion, tecnico_id)
-                  for c in cotizacion.conceptos_autorizados if c.tipo is TipoConcepto.MANO_DE_OBRA]
-        self._trabajos.extend(nuevos)
-        return nuevos
+        return [TrabajoReparacion(TrabajoId.generar(), c.id, c.descripcion, tecnico_id)
+                for c in cotizacion.conceptos_autorizados if c.tipo is TipoConcepto.MANO_DE_OBRA]
 
     def _trabajo(self, trabajo_id: TrabajoId) -> TrabajoReparacion:
         return self._buscar(self._trabajos, trabajo_id, "trabajo")

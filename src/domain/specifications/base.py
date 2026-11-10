@@ -1,44 +1,57 @@
+"""Patrón Specification: reglas de negocio como objetos componibles."""
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from typing import Generic, TypeVar
 
+from ..shared import ReglaDeNegocioViolada
+
 T = TypeVar("T")
+
 
 class Specification(ABC, Generic[T]):
     @abstractmethod
-    def is_satisfied_by(self, candidate: T) -> bool:
-        pass
+    def es_satisfecha_por(self, candidato: T) -> bool: ...
 
-    def __and__(self, other: "Specification[T]") -> "Specification[T]":
-        return AndSpecification(self, other)
+    # Combinadores: AND / OR / NOT (métodos y operadores & | ~)
+    def y(self, otra: "Specification[T]") -> "Specification[T]":
+        return AndSpecification(self, otra)
 
-    def __or__(self, other: "Specification[T]") -> "Specification[T]":
-        return OrSpecification(self, other)
+    def o(self, otra: "Specification[T]") -> "Specification[T]":
+        return OrSpecification(self, otra)
 
-    def __invert__(self) -> "Specification[T]":
+    def no(self) -> "Specification[T]":
         return NotSpecification(self)
+
+    __and__ = y
+    __or__ = o
+    __invert__ = no
+
+    def verificar(self, candidato: T, regla: str, mensaje: str) -> None:
+        """Lanza ``ReglaDeNegocioViolada`` si el candidato no cumple la especificación."""
+        if not self.es_satisfecha_por(candidato):
+            raise ReglaDeNegocioViolada(regla, mensaje)
 
 
 class AndSpecification(Specification[T]):
-    def __init__(self, spec1: Specification[T], spec2: Specification[T]):
-        self.spec1 = spec1
-        self.spec2 = spec2
+    def __init__(self, izquierda: Specification[T], derecha: Specification[T]) -> None:
+        self._i, self._d = izquierda, derecha
 
-    def is_satisfied_by(self, candidate: T) -> bool:
-        return self.spec1.is_satisfied_by(candidate) and self.spec2.is_satisfied_by(candidate)
+    def es_satisfecha_por(self, candidato: T) -> bool:
+        return self._i.es_satisfecha_por(candidato) and self._d.es_satisfecha_por(candidato)
 
 
 class OrSpecification(Specification[T]):
-    def __init__(self, spec1: Specification[T], spec2: Specification[T]):
-        self.spec1 = spec1
-        self.spec2 = spec2
+    def __init__(self, izquierda: Specification[T], derecha: Specification[T]) -> None:
+        self._i, self._d = izquierda, derecha
 
-    def is_satisfied_by(self, candidate: T) -> bool:
-        return self.spec1.is_satisfied_by(candidate) or self.spec2.is_satisfied_by(candidate)
+    def es_satisfecha_por(self, candidato: T) -> bool:
+        return self._i.es_satisfecha_por(candidato) or self._d.es_satisfecha_por(candidato)
 
 
 class NotSpecification(Specification[T]):
-    def __init__(self, spec: Specification[T]):
-        self.spec = spec
+    def __init__(self, spec: Specification[T]) -> None:
+        self._spec = spec
 
-    def is_satisfied_by(self, candidate: T) -> bool:
-        return not self.spec.is_satisfied_by(candidate)
+    def es_satisfecha_por(self, candidato: T) -> bool:
+        return not self._spec.es_satisfecha_por(candidato)

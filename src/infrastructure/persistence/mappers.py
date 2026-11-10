@@ -10,49 +10,16 @@ from decimal import Decimal
 from typing import Any
 
 from ...domain.entities import (
-    Cliente,
-    ConceptoCotizacion,
-    CondicionesFlotilla,
-    Cotizacion,
-    CuentaFlotilla,
-    EstadoAmpliacion,
-    EstadoConcepto,
-    EstadoSolicitudRefaccion,
-    EstadoTrabajo,
-    OrdenServicio,
-    SolicitudAmpliacion,
-    SolicitudRefaccion,
-    Tecnico,
-    TipoConcepto,
-    TipoCotizacion,
-    TrabajoReparacion,
-    Vehiculo,
+    Cliente, ConceptoCotizacion, CondicionesFlotilla, Cotizacion, CuentaFlotilla, EstadoAmpliacion, ItemCatalogo,
+    EstadoConcepto, EstadoSolicitudRefaccion, EstadoTrabajo, OrdenServicio, SolicitudAmpliacion,
+    SolicitudRefaccion, Tecnico, TipoConcepto, TipoCotizacion, TrabajoReparacion, Vehiculo,
 )
 from ...domain.shared import AggregateRoot
 from ...domain.value_objects import (
-    CambioFechaEntrega,
-    CanalAutorizacion,
-    ClienteId,
-    ConceptoId,
-    CotizacionId,
-    CuentaFlotillaId,
-    DatosContacto,
-    DatosRecepcion,
-    Dinero,
-    EstadoOrden,
-    EvidenciaAutorizacion,
-    FechaEntrega,
-    Kilometraje,
-    NivelCombustible,
-    OrdenServicioId,
-    Placas,
-    Porcentaje,
-    SolicitudAmpliacionId,
-    SolicitudRefaccionId,
-    TecnicoId,
-    TrabajoId,
-    VehiculoId,
-    Vin,
+    CambioFechaEntrega, CanalAutorizacion, ClienteId, ConceptoId, CotizacionId, CuentaFlotillaId,
+    DatosContacto, DatosRecepcion, Dinero, EstadoOrden, EvidenciaAutorizacion, FechaEntrega, Kilometraje,
+    NivelCombustible, OrdenServicioId, Placas, Porcentaje, RecursoId, SolicitudAmpliacionId, SolicitudRefaccionId,
+    TecnicoId, TrabajoId, VehiculoId, Vin,
 )
 from . import modelos as m
 
@@ -74,13 +41,15 @@ def _id_opt(cls, valor: str | None):
 # ------------------------------------------------------------------ catálogos
 def cliente_a_record(c: Cliente) -> m.ClienteRecord:
     return m.ClienteRecord(id=str(c.id), nombre=c.nombre, telefono=c.contacto.telefono, email=c.contacto.email,
-                           activo=c.activo, cuenta_flotilla_id=str(c.cuenta_flotilla_id) if c.cuenta_flotilla_id else None)
+                           activo=c.activo, es_preferente=c.es_preferente,
+                           cuenta_flotilla_id=str(c.cuenta_flotilla_id) if c.cuenta_flotilla_id else None)
 
 
 def record_a_cliente(r: m.ClienteRecord) -> Cliente:
     return _rehidratar(Cliente, ClienteId.desde_str(r.id), nombre=r.nombre,
                        contacto=DatosContacto(r.telefono, r.email),
-                       cuenta_flotilla_id=_id_opt(CuentaFlotillaId, r.cuenta_flotilla_id), activo=r.activo)
+                       cuenta_flotilla_id=_id_opt(CuentaFlotillaId, r.cuenta_flotilla_id), activo=r.activo,
+                       es_preferente=r.es_preferente)
 
 
 def vehiculo_a_record(v: Vehiculo) -> m.VehiculoRecord:
@@ -93,6 +62,16 @@ def record_a_vehiculo(r: m.VehiculoRecord) -> Vehiculo:
     return _rehidratar(Vehiculo, VehiculoId.desde_str(r.id), placas=Placas(r.placas), marca=r.marca, modelo=r.modelo,
                        kilometraje=Kilometraje(r.kilometraje), vin=Vin(r.vin) if r.vin else None,
                        cuenta_flotilla_id=_id_opt(CuentaFlotillaId, r.cuenta_flotilla_id))
+
+
+def item_a_record(i: ItemCatalogo) -> m.ItemCatalogoRecord:
+    return m.ItemCatalogoRecord(id=str(i.id), descripcion=i.descripcion, precio=i.precio.monto,
+                                capacidad=i.capacidad, habilitado=i.habilitado)
+
+
+def record_a_item(r: m.ItemCatalogoRecord) -> ItemCatalogo:
+    return _rehidratar(ItemCatalogo, RecursoId.desde_str(r.id), descripcion=r.descripcion,
+                       precio=Dinero(Decimal(r.precio)), capacidad=r.capacidad, habilitado=r.habilitado)
 
 
 def tecnico_a_record(t: Tecnico) -> m.TecnicoRecord:
@@ -125,6 +104,7 @@ def _cotizacion_a_record(c: Cotizacion, orden_id: str, solicitud_id: str | None)
         conceptos.append(m.ConceptoRecord(
             id=str(k.id), posicion=i, tipo=k.tipo.value, descripcion=k.descripcion, cantidad=k.cantidad,
             precio_unitario=k.precio_unitario.monto, estado=k.estado.value,
+            recurso_id=str(k.recurso_id) if k.recurso_id else None,
             ev_sello_tiempo=ev.sello_tiempo if ev else None, ev_canal=ev.canal.value if ev else None,
             ev_ip=ev.ip if ev else None, ev_token=ev.token_verificacion if ev else None))
     return m.CotizacionRecord(id=str(c.id), orden_id=orden_id, solicitud_ampliacion_id=solicitud_id, tipo=c.tipo.value,
@@ -140,7 +120,8 @@ def _record_a_cotizacion(r: m.CotizacionRecord) -> Cotizacion:
         conceptos.append(_rehidratar(
             ConceptoCotizacion, ConceptoId.desde_str(k.id), tipo=TipoConcepto(k.tipo), descripcion=k.descripcion,
             precio_unitario=Dinero(Decimal(k.precio_unitario)), cantidad=Decimal(k.cantidad).normalize(),
-            estado=EstadoConcepto(k.estado), evidencia=ev))
+            estado=EstadoConcepto(k.estado), evidencia=ev,
+            recurso_id=_id_opt(RecursoId, k.recurso_id)))
     return _rehidratar(Cotizacion, CotizacionId.desde_str(r.id), tipo=TipoCotizacion(r.tipo), conceptos=conceptos,
                        emitida_en=r.emitida_en, tasa_impuesto=Porcentaje(Decimal(r.tasa_impuesto)),
                        descuento=Porcentaje(Decimal(r.descuento)), respondida=r.respondida)
@@ -159,7 +140,7 @@ def orden_a_record(o: OrdenServicio) -> m.OrdenServicioRecord:
     return m.OrdenServicioRecord(
         id=oid, cliente_id=str(o.cliente_id), vehiculo_id=str(o.vehiculo_id), autorizador_id=str(o.autorizador_id),
         estado=o.estado.value, creada_en=o.creada_en, kilometraje=rec.kilometraje.km, combustible=rec.combustible.value,
-        danos_visibles=list(rec.danos_visibles), motivo_ingreso=rec.motivo_ingreso, es_flotilla=cond is not None,
+        danos_visibles=list(rec.danos_visibles), motivo_ingreso=rec.motivo_ingreso, es_flotilla=cond is not None, promocion_activa=o.promocion_activa,
         flotilla_descuento=cond.descuento.valor if cond else None, flotilla_prioridad=cond.prioridad if cond else None,
         flotilla_dias_credito=cond.dias_credito if cond else None, hallazgos=list(o.hallazgos),
         tecnico_diagnostico_id=str(o.tecnico_diagnostico_id) if o.tecnico_diagnostico_id else None,
@@ -199,7 +180,8 @@ def record_a_orden(r: m.OrdenServicioRecord) -> OrdenServicio:
         autorizador_id=ClienteId.desde_str(r.autorizador_id),
         datos_recepcion=DatosRecepcion(Kilometraje(r.kilometraje), NivelCombustible(r.combustible),
                                        tuple(r.danos_visibles), r.motivo_ingreso),
-        creada_en=r.creada_en, condiciones_flotilla=condiciones, estado=EstadoOrden(r.estado),
+        creada_en=r.creada_en, condiciones_flotilla=condiciones, promocion_activa=r.promocion_activa,
+        estado=EstadoOrden(r.estado),
         hallazgos=tuple(r.hallazgos), tecnico_diagnostico=_id_opt(TecnicoId, r.tecnico_diagnostico_id),
         cotizacion_inicial=cot_por_solicitud.get(None), solicitudes_ampliacion=ampliaciones,
         solicitudes_refaccion=[_rehidratar(

@@ -13,7 +13,7 @@ from .tipos import UTCDateTime
 ID = String(36)
 DINERO = Numeric(14, 2)
 PCT = Numeric(5, 2)
-_CASCADE = {"cascade": "all, delete-orphan", "lazy": "selectin"}
+_CASCADE = dict(cascade="all, delete-orphan", lazy="selectin")
 
 
 class CuentaFlotillaRecord(Base):
@@ -33,6 +33,7 @@ class ClienteRecord(Base):
     telefono: Mapped[str | None] = mapped_column(String(30))
     email: Mapped[str | None] = mapped_column(String(150))
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
+    es_preferente: Mapped[bool] = mapped_column(Boolean, default=False)
     cuenta_flotilla_id: Mapped[str | None] = mapped_column(ID, index=True)  # sin FK: evita ciclo con la cuenta
 
 
@@ -45,6 +46,15 @@ class VehiculoRecord(Base):
     modelo: Mapped[str] = mapped_column(String(80))
     kilometraje: Mapped[int] = mapped_column(Integer)
     cuenta_flotilla_id: Mapped[str | None] = mapped_column(ID, ForeignKey("cuentas_flotilla.id"))
+
+
+class ItemCatalogoRecord(Base):
+    __tablename__ = "catalogo"
+    id: Mapped[str] = mapped_column(ID, primary_key=True)
+    descripcion: Mapped[str] = mapped_column(String(200))
+    precio: Mapped[Decimal] = mapped_column(DINERO)
+    capacidad: Mapped[int] = mapped_column(Integer)
+    habilitado: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
 class TecnicoRecord(Base):
@@ -70,6 +80,7 @@ class OrdenServicioRecord(Base):
     motivo_ingreso: Mapped[str] = mapped_column(Text)
     # flotilla (RN-09)
     es_flotilla: Mapped[bool] = mapped_column(Boolean, default=False)
+    promocion_activa: Mapped[bool] = mapped_column(Boolean, default=False)
     flotilla_descuento: Mapped[Decimal | None] = mapped_column(PCT)
     flotilla_prioridad: Mapped[int | None] = mapped_column(Integer)
     flotilla_dias_credito: Mapped[int | None] = mapped_column(Integer)
@@ -79,13 +90,13 @@ class OrdenServicioRecord(Base):
     fecha_entrega: Mapped[datetime | None] = mapped_column(UTCDateTime)
     monto_cobrado: Mapped[Decimal | None] = mapped_column(DINERO)
 
-    cotizaciones: Mapped[list[CotizacionRecord]] = relationship(**_CASCADE)
-    trabajos: Mapped[list[TrabajoRecord]] = relationship(order_by="TrabajoRecord.posicion", **_CASCADE)
-    solicitudes_refaccion: Mapped[list[SolicitudRefaccionRecord]] = relationship(
+    cotizaciones: Mapped[list["CotizacionRecord"]] = relationship(**_CASCADE)
+    trabajos: Mapped[list["TrabajoRecord"]] = relationship(order_by="TrabajoRecord.posicion", **_CASCADE)
+    solicitudes_refaccion: Mapped[list["SolicitudRefaccionRecord"]] = relationship(
         order_by="SolicitudRefaccionRecord.posicion", **_CASCADE)
-    solicitudes_ampliacion: Mapped[list[SolicitudAmpliacionRecord]] = relationship(
+    solicitudes_ampliacion: Mapped[list["SolicitudAmpliacionRecord"]] = relationship(
         order_by="SolicitudAmpliacionRecord.posicion", **_CASCADE)
-    cambios_fecha: Mapped[list[CambioFechaRecord]] = relationship(order_by="CambioFechaRecord.posicion", **_CASCADE)
+    cambios_fecha: Mapped[list["CambioFechaRecord"]] = relationship(order_by="CambioFechaRecord.posicion", **_CASCADE)
 
 
 class CotizacionRecord(Base):
@@ -98,7 +109,7 @@ class CotizacionRecord(Base):
     tasa_impuesto: Mapped[Decimal] = mapped_column(PCT)
     descuento: Mapped[Decimal] = mapped_column(PCT)
     respondida: Mapped[bool] = mapped_column(Boolean, default=False)
-    conceptos: Mapped[list[ConceptoRecord]] = relationship(order_by="ConceptoRecord.posicion", **_CASCADE)
+    conceptos: Mapped[list["ConceptoRecord"]] = relationship(order_by="ConceptoRecord.posicion", **_CASCADE)
 
 
 class ConceptoRecord(Base):
@@ -111,6 +122,7 @@ class ConceptoRecord(Base):
     cantidad: Mapped[Decimal] = mapped_column(Numeric(10, 3))
     precio_unitario: Mapped[Decimal] = mapped_column(DINERO)
     estado: Mapped[str] = mapped_column(String(20))
+    recurso_id: Mapped[str | None] = mapped_column(ID, index=True)   # recurso del catálogo (opcional)
     # evidencia de autorización (RN-11)
     ev_sello_tiempo: Mapped[datetime | None] = mapped_column(UTCDateTime)
     ev_canal: Mapped[str | None] = mapped_column(String(10))

@@ -5,21 +5,13 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ...application.ports import (
-    ClienteRepository,
-    CuentaFlotillaRepository,
-    OrdenServicioRepository,
-    TecnicoRepository,
+    ClienteRepository, CuentaFlotillaRepository, ItemCatalogoRepository, OrdenServicioRepository, TecnicoRepository,
     VehiculoRepository,
 )
-from ...domain.entities import Cliente, CuentaFlotilla, OrdenServicio, Tecnico, Vehiculo
+from ...domain.entities import Cliente, CuentaFlotilla, ItemCatalogo, OrdenServicio, Tecnico, Vehiculo
 from ...domain.shared import EntidadNoEncontrada
 from ...domain.value_objects import (
-    ClienteId,
-    CuentaFlotillaId,
-    OrdenServicioId,
-    Placas,
-    TecnicoId,
-    VehiculoId,
+    ClienteId, CuentaFlotillaId, OrdenServicioId, Placas, RecursoId, TecnicoId, VehiculoId,
 )
 from . import mappers as mp
 from . import modelos as m
@@ -58,6 +50,10 @@ class SqlOrdenServicioRepository(_SqlBase, OrdenServicioRepository):
     def listar_por_cliente(self, cliente_id: ClienteId) -> list[OrdenServicio]:
         return self._listar(m.OrdenServicioRecord.cliente_id, cliente_id)
 
+    def listar(self) -> list[OrdenServicio]:
+        stmt = select(m.OrdenServicioRecord).order_by(m.OrdenServicioRecord.creada_en.desc())
+        return [mp.record_a_orden(r) for r in self._s.scalars(stmt)]
+
 
 class SqlClienteRepository(_SqlBase, ClienteRepository):
     def guardar(self, cliente: Cliente) -> None:
@@ -72,6 +68,10 @@ class SqlClienteRepository(_SqlBase, ClienteRepository):
         if c is None:
             raise EntidadNoEncontrada(f"No existe el cliente {id}")
         return c
+
+    def listar(self) -> list[Cliente]:
+        stmt = select(m.ClienteRecord).order_by(m.ClienteRecord.nombre)
+        return [mp.record_a_cliente(r) for r in self._s.scalars(stmt)]
 
 
 class SqlVehiculoRepository(_SqlBase, VehiculoRepository):
@@ -92,6 +92,10 @@ class SqlVehiculoRepository(_SqlBase, VehiculoRepository):
             raise EntidadNoEncontrada(f"No existe el vehículo {id}")
         return v
 
+    def listar(self) -> list[Vehiculo]:
+        stmt = select(m.VehiculoRecord).order_by(m.VehiculoRecord.placas)
+        return [mp.record_a_vehiculo(r) for r in self._s.scalars(stmt)]
+
 
 class SqlTecnicoRepository(_SqlBase, TecnicoRepository):
     def guardar(self, tecnico: Tecnico) -> None:
@@ -111,6 +115,10 @@ class SqlTecnicoRepository(_SqlBase, TecnicoRepository):
         stmt = select(m.TecnicoRecord).where(m.TecnicoRecord.disponible.is_(True)).order_by(m.TecnicoRecord.nombre)
         return [mp.record_a_tecnico(r) for r in self._s.scalars(stmt)]
 
+    def listar(self) -> list[Tecnico]:
+        stmt = select(m.TecnicoRecord).order_by(m.TecnicoRecord.nombre)
+        return [mp.record_a_tecnico(r) for r in self._s.scalars(stmt)]
+
 
 class SqlCuentaFlotillaRepository(_SqlBase, CuentaFlotillaRepository):
     def guardar(self, cuenta: CuentaFlotilla) -> None:
@@ -125,3 +133,25 @@ class SqlCuentaFlotillaRepository(_SqlBase, CuentaFlotillaRepository):
         if c is None:
             raise EntidadNoEncontrada(f"No existe la cuenta de flotilla {id}")
         return c
+
+    def listar(self) -> list[CuentaFlotilla]:
+        stmt = select(m.CuentaFlotillaRecord).order_by(m.CuentaFlotillaRecord.razon_social)
+        return [mp.record_a_cuenta(r) for r in self._s.scalars(stmt)]
+
+
+class SqlItemCatalogoRepository(_SqlBase, ItemCatalogoRepository):
+    def guardar(self, item: ItemCatalogo) -> None:
+        self._guardar(mp.item_a_record(item))
+
+    def buscar_por_id(self, id: RecursoId) -> ItemCatalogo | None:
+        r = self._s.get(m.ItemCatalogoRecord, str(id))
+        return mp.record_a_item(r) if r else None
+
+    def obtener(self, id: RecursoId) -> ItemCatalogo:
+        i = self.buscar_por_id(id)
+        if i is None:
+            raise EntidadNoEncontrada(f"No existe el recurso {id} en el catálogo")
+        return i
+
+    def listar(self) -> list[ItemCatalogo]:
+        return [mp.record_a_item(r) for r in self._s.scalars(select(m.ItemCatalogoRecord).order_by(m.ItemCatalogoRecord.id))]

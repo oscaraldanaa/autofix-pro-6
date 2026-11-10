@@ -1,16 +1,11 @@
 from __future__ import annotations
 
-from typing import Self
-
 from sqlalchemy.orm import Session, sessionmaker
 
 from ...application.ports import UnitOfWork
 from .repositorios import (
-    SqlClienteRepository,
-    SqlCuentaFlotillaRepository,
-    SqlOrdenServicioRepository,
-    SqlTecnicoRepository,
-    SqlVehiculoRepository,
+    SqlClienteRepository, SqlCuentaFlotillaRepository, SqlItemCatalogoRepository, SqlOrdenServicioRepository,
+    SqlTecnicoRepository, SqlVehiculoRepository,
 )
 
 
@@ -21,13 +16,14 @@ class SqlUnitOfWork(UnitOfWork):
         self._session_factory = session_factory
         self._session: Session | None = None
 
-    def __enter__(self) -> Self:
+    def __enter__(self) -> "SqlUnitOfWork":
         s = self._session = self._session_factory()
         self.ordenes = SqlOrdenServicioRepository(s)
         self.clientes = SqlClienteRepository(s)
         self.vehiculos = SqlVehiculoRepository(s)
         self.tecnicos = SqlTecnicoRepository(s)
         self.cuentas_flotilla = SqlCuentaFlotillaRepository(s)
+        self.catalogo = SqlItemCatalogoRepository(s)
         return self
 
     def __exit__(self, exc_type, exc, tb) -> None:

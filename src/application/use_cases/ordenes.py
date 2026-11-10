@@ -1,55 +1,41 @@
 """Casos de uso de comando sobre la Orden de Servicio (US-01..US-15)."""
 from __future__ import annotations
 
+from datetime import datetime
+from decimal import Decimal
+from typing import Callable
+
 from ...domain.entities import ConceptoCotizacion, OrdenServicio, TipoConcepto
-from ...domain.specifications import (
-    ClienteActivoSpec,
-    MontoMinimoSpec,
-    TecnicoDisponibleSpec,
-)
+from ...domain.shared import ReglaDeNegocioViolada, ValorInvalido
+from ...domain.specifications import ClienteActivoSpec, MontoMinimoSpec, TecnicoDisponibleSpec
 from ...domain.value_objects import (
-    ClienteId,
-    ConceptoId,
-    DatosRecepcion,
-    Dinero,
-    FechaEntrega,
-    Kilometraje,
-    NivelCombustible,
-    Porcentaje,
-    SolicitudAmpliacionId,
-    SolicitudRefaccionId,
-    TecnicoId,
-    TrabajoId,
-    VehiculoId,
+    ClienteId, ConceptoId, DatosRecepcion, Dinero, FechaEntrega, Kilometraje, NivelCombustible,
+    OrdenServicioId, Porcentaje, RecursoId, SolicitudAmpliacionId, SolicitudRefaccionId, TecnicoId, TrabajoId, VehiculoId,
 )
 from ..dto import (
-    ActualizarReposicionCmd,
-    AsignarTrabajosCmd,
-    CancelarOrdenCmd,
-    ConceptoNuevoDTO,
-    DefinirFechaEntregaCmd,
-    EnviarCotizacionComplementariaCmd,
-    GenerarCotizacionCmd,
-    OrdenCmd,
-    OrdenDetalleDTO,
-    RegistrarCobroCmd,
-    RegistrarDiagnosticoCmd,
-    RegistrarFallaAdicionalCmd,
-    RegistrarIngresoCmd,
-    ReportarRefaccionSinExistenciaCmd,
-    ResponderAmpliacionCmd,
-    ResponderCotizacionCmd,
-    SolicitudRefaccionCmd,
-    TrabajoCmd,
-    a_orden_dto,
+    ActualizarReposicionCmd, AsignarTrabajosCmd, CancelarOrdenCmd, ConceptoNuevoDTO, DefinirFechaEntregaCmd,
+    EnviarCotizacionComplementariaCmd, GenerarCotizacionCmd, OrdenCmd, OrdenDetalleDTO,
+    RegistrarCobroCmd, RegistrarDiagnosticoCmd, RegistrarFallaAdicionalCmd, RegistrarIngresoCmd,
+    ReportarRefaccionSinExistenciaCmd, ResponderAmpliacionCmd, ResponderCotizacionCmd, SolicitudRefaccionCmd,
+    TrabajoCmd, a_orden_dto,
 )
 from ..ports import EventBus, UnitOfWorkFactory
 from .base import CasoDeUso, decisiones_a_dominio
 
 
-def _conceptos(dtos: tuple[ConceptoNuevoDTO, ...]) -> list[ConceptoCotizacion]:
-    return [ConceptoCotizacion(ConceptoId.generar(), TipoConcepto(d.tipo), d.descripcion,
-                               Dinero.de(d.precio_unitario), d.cantidad) for d in dtos]
+def _conceptos(dtos: tuple[ConceptoNuevoDTO, ...], uow) -> list[ConceptoCotizacion]:
+    """Concepto de catálogo (precio oficial + validación de habilitado/capacidad) o libre."""
+    conceptos = []
+    for d in dtos:
+        if d.recurso_id:
+            item = uow.catalogo.obtener(RecursoId.desde_str(d.recurso_id))
+            conceptos.append(item.a_concepto(d.cantidad, TipoConcepto(d.tipo)))
+        elif d.descripcion and d.precio_unitario is not None:
+            conceptos.append(ConceptoCotizacion(ConceptoId.generar(), TipoConcepto(d.tipo), d.descripcion,
+                                                Dinero.de(d.precio_unitario), d.cantidad))
+        else:
+            raise ValorInvalido("Cada concepto requiere recurso_id o (descripción y precio)")
+    return conceptos
 
 
 class RegistrarIngresoVehiculo(CasoDeUso):
@@ -63,7 +49,8 @@ class RegistrarIngresoVehiculo(CasoDeUso):
             cuenta = uow.cuentas_flotilla.obtener(vehiculo.cuenta_flotilla_id) if vehiculo.cuenta_flotilla_id else None
             datos = DatosRecepcion(Kilometraje(cmd.kilometraje), NivelCombustible(cmd.combustible),
                                    tuple(cmd.danos_visibles), cmd.motivo_ingreso)
-            orden = OrdenServicio.registrar_ingreso(cliente, vehiculo, datos, cuenta, ahora=self._reloj())
+            orden = OrdenServicio.registrar_ingreso(cliente, vehiculo, datos, cuenta, ahora=self._reloj(),
+                                                    promocion_activa=cmd.promocion_activa)
             vehiculo.actualizar_kilometraje(datos.kilometraje)
             uow.vehiculos.guardar(vehiculo)
             uow.ordenes.guardar(orden)
@@ -88,8 +75,8 @@ class GenerarCotizacion(CasoDeUso):
         self._tasa = tasa_impuesto
 
     def ejecutar(self, cmd: GenerarCotizacionCmd) -> OrdenDetalleDTO:
-        return self._sobre_orden(cmd.orden_id, lambda o, _: o.generar_cotizacion(
-            _conceptos(cmd.conceptos), self._tasa, self._reloj()))
+        return self._sobre_orden(cmd.orden_id, lambda o, uow: o.generar_cotizacion(
+            _conceptos(cmd.conceptos, uow), self._tasa, self._reloj()))
 
 
 class ResponderCotizacion(CasoDeUso):
@@ -101,11 +88,13 @@ class ResponderCotizacion(CasoDeUso):
 
 
 class AsignarTrabajos(CasoDeUso):
-    """US-05 / RF-05. El técnico debe estar disponible (Specification)."""
+    """US-05 / RF-05. Precondiciones (Specification): cliente activo y técnico disponible."""
 
     def ejecutar(self, cmd: AsignarTrabajosCmd) -> OrdenDetalleDTO:
         def accion(orden, uow):
             tecnico = uow.tecnicos.obtener(TecnicoId.desde_str(cmd.tecnico_id))
+            cliente = uow.clientes.obtener(orden.cliente_id)
+            ClienteActivoSpec().verificar(cliente, "EXT-01", "El cliente está inactivo: no se asignan trabajos")
             TecnicoDisponibleSpec().verificar(tecnico, "RN-12", f"El técnico {tecnico.nombre} no está disponible")
             orden.asignar_trabajos(tecnico.id)
         return self._sobre_orden(cmd.orden_id, accion)
@@ -152,8 +141,8 @@ class EnviarCotizacionComplementaria(CasoDeUso):
         self._tasa = tasa_impuesto
 
     def ejecutar(self, cmd: EnviarCotizacionComplementariaCmd) -> OrdenDetalleDTO:
-        return self._sobre_orden(cmd.orden_id, lambda o, _: o.enviar_cotizacion_complementaria(
-            SolicitudAmpliacionId.desde_str(cmd.solicitud_id), _conceptos(cmd.conceptos), self._tasa,
+        return self._sobre_orden(cmd.orden_id, lambda o, uow: o.enviar_cotizacion_complementaria(
+            SolicitudAmpliacionId.desde_str(cmd.solicitud_id), _conceptos(cmd.conceptos, uow), self._tasa,
             self._reloj()))
 
 

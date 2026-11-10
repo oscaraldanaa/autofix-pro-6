@@ -13,6 +13,8 @@ class Cliente(Entity[ClienteId]):
         nombre: str,
         contacto: DatosContacto,
         cuenta_flotilla_id: CuentaFlotillaId | None = None,
+        activo: bool = True,
+        es_preferente: bool = False,
     ) -> None:
         super().__init__(id)
         if not nombre or not nombre.strip():
@@ -20,6 +22,23 @@ class Cliente(Entity[ClienteId]):
         self._nombre = nombre.strip()
         self._contacto = contacto
         self._cuenta_flotilla_id = cuenta_flotilla_id
+        self._activo = activo
+        self._es_preferente = es_preferente
+
+    @property
+    def activo(self) -> bool:
+        return self._activo
+
+    @property
+    def es_preferente(self) -> bool:
+        """Cliente preferente (VIP). Extensión para la regla ``beneficio_referencia``; no proviene del BRD."""
+        return self._es_preferente
+
+    def desactivar(self) -> None:
+        self._activo = False
+
+    def activar(self) -> None:
+        self._activo = True
 
     @property
     def nombre(self) -> str:

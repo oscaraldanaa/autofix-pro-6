@@ -4,12 +4,7 @@ from datetime import datetime
 from enum import Enum
 
 from ..shared import Entity, ReglaDeNegocioViolada
-from ..value_objects import (
-    ConceptoId,
-    SolicitudAmpliacionId,
-    SolicitudRefaccionId,
-    TecnicoId,
-)
+from ..value_objects import ConceptoId, SolicitudAmpliacionId, SolicitudRefaccionId, TecnicoId
 from .cotizacion import Cotizacion
 
 
@@ -74,8 +69,6 @@ class SolicitudAmpliacion(Entity[SolicitudAmpliacionId]):
     detectada_en = property(lambda s: s._detectada_en)
     estado = property(lambda s: s._estado)
     cotizacion = property(lambda s: s._cotizacion)
-
-    
 
     def adjuntar_cotizacion(self, cotizacion: Cotizacion) -> None:
         if self._estado is not EstadoAmpliacion.PENDIENTE_COTIZACION:
